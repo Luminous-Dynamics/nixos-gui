@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NixOS Package Manager - Sacred GUI</title>
+    <title>NixOS GUI - Package Manager</title>
     <style>
         :root {
             --sacred-purple: #8b5cf6;
@@ -18,6 +18,8 @@
             --border: #475569;
             --nix-blue: #5277C3;
             --nix-light: #7EBAE4;
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * {
@@ -33,16 +35,41 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, rgba(123, 104, 238, 0.03) 0%, transparent 50%);
+            animation: drift 20s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-50px, -50px) rotate(120deg); }
+            66% { transform: translate(50px, -50px) rotate(240deg); }
         }
 
         /* Header */
         .header {
-            background: var(--bg-secondary);
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
             padding: 1rem 2rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
             border-bottom: 1px solid var(--border);
+            z-index: 10;
         }
 
         .logo {
@@ -54,8 +81,8 @@
         }
 
         .nix-logo {
-            width: 32px;
-            height: 32px;
+            width: 40px;
+            height: 40px;
             background: linear-gradient(135deg, var(--nix-blue), var(--nix-light));
             border-radius: 50%;
             display: flex;
@@ -63,6 +90,14 @@
             justify-content: center;
             color: white;
             font-weight: bold;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(82, 119, 195, 0.3);
+            animation: gentle-pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes gentle-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
 
         .stats {
@@ -72,11 +107,25 @@
             color: var(--text-secondary);
         }
 
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
         /* Search Section */
         .search-section {
             padding: 2rem;
-            background: var(--bg-secondary);
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
             border-bottom: 1px solid var(--border);
+            z-index: 5;
         }
 
         .search-container {
@@ -91,54 +140,106 @@
 
         .search-input {
             width: 100%;
-            padding: 1rem 3rem;
+            padding: 1.25rem 3.5rem;
             font-size: 1.125rem;
-            background: var(--bg-primary);
+            background: rgba(15, 23, 42, 0.8);
             border: 2px solid var(--border);
-            border-radius: 12px;
+            border-radius: var(--radius);
             color: var(--text-primary);
-            transition: all 0.3s ease;
+            transition: var(--transition);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
         }
 
         .search-input:focus {
             outline: none;
             border-color: var(--sacred-purple);
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1),
+                        0 10px 40px -10px rgba(139, 92, 246, 0.3);
+            transform: translateY(-1px);
         }
 
         .search-icon {
             position: absolute;
-            left: 1rem;
+            left: 1.25rem;
             top: 50%;
             transform: translateY(-50%);
             color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .search-input:focus ~ .search-icon {
+            color: var(--sacred-purple);
+        }
+
+        /* Quick stats bar */
+        .quick-stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .quick-stat {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem;
+            border-radius: 6px;
+            background: rgba(51, 65, 85, 0.3);
         }
 
         .filters {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             flex-wrap: wrap;
         }
 
         .filter-chip {
-            padding: 0.5rem 1rem;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
+            padding: 0.625rem 1.25rem;
+            background: rgba(51, 65, 85, 0.5);
+            border: 1px solid transparent;
+            border-radius: 24px;
             font-size: 0.875rem;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .filter-chip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .filter-chip span {
+            position: relative;
+            z-index: 1;
         }
 
         .filter-chip:hover {
-            border-color: var(--sacred-purple);
-            color: var(--sacred-purple);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .filter-chip.active {
-            background: var(--sacred-purple);
             border-color: var(--sacred-purple);
             color: white;
+        }
+
+        .filter-chip.active::before {
+            opacity: 1;
         }
 
         /* Package Grid */
@@ -146,29 +247,51 @@
             flex: 1;
             padding: 2rem;
             overflow-y: auto;
+            position: relative;
         }
 
         .package-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
             gap: 1.5rem;
             max-width: 1400px;
             margin: 0 auto;
+            padding-bottom: 2rem;
         }
 
         .package-card {
-            background: var(--bg-secondary);
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: var(--radius);
             padding: 1.5rem;
-            transition: all 0.3s ease;
+            transition: var(--transition);
             cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .package-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--sacred-purple), var(--sacred-blue));
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .package-card:hover::before {
+            transform: translateX(0);
         }
 
         .package-card:hover {
             border-color: var(--sacred-purple);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4),
+                        0 0 0 1px rgba(139, 92, 246, 0.2);
         }
 
         .package-header {
@@ -178,42 +301,70 @@
             margin-bottom: 1rem;
         }
 
+        .package-info {
+            flex: 1;
+        }
+
         .package-name {
             font-size: 1.25rem;
             font-weight: 600;
             color: var(--text-primary);
+            margin-bottom: 0.25rem;
         }
 
         .package-version {
             font-size: 0.875rem;
             color: var(--text-secondary);
-            margin-top: 0.25rem;
         }
 
         .package-status {
-            padding: 0.25rem 0.75rem;
+            padding: 0.375rem 0.875rem;
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
         }
 
         .status-installed {
             background: rgba(16, 185, 129, 0.1);
             color: var(--sacred-green);
-            border: 1px solid var(--sacred-green);
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
 
         .status-available {
             background: rgba(139, 92, 246, 0.1);
             color: var(--sacred-purple);
-            border: 1px solid var(--sacred-purple);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         .package-description {
             color: var(--text-secondary);
             font-size: 0.875rem;
-            line-height: 1.5;
+            line-height: 1.6;
             margin-bottom: 1rem;
+        }
+
+        .package-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
         }
 
         .package-actions {
@@ -222,30 +373,50 @@
         }
 
         .btn {
-            padding: 0.5rem 1rem;
+            padding: 0.625rem 1.25rem;
             border: none;
             border-radius: 8px;
             font-size: 0.875rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: var(--transition);
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::before {
+            width: 300px;
+            height: 300px;
         }
 
         .btn-primary {
-            background: var(--sacred-purple);
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
             color: white;
         }
 
         .btn-primary:hover {
-            background: #7c3aed;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
         }
 
         .btn-secondary {
-            background: var(--bg-tertiary);
+            background: rgba(51, 65, 85, 0.6);
             color: var(--text-primary);
             border: 1px solid var(--border);
         }
@@ -253,6 +424,7 @@
         .btn-secondary:hover {
             border-color: var(--sacred-purple);
             color: var(--sacred-purple);
+            background: rgba(139, 92, 246, 0.1);
         }
 
         /* Loading State */
@@ -269,21 +441,11 @@
             border-top-color: var(--sacred-purple);
             border-radius: 50%;
             margin: 0 auto 1rem;
-            animation: spin 1s linear infinite;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
         }
 
         @keyframes spin {
             to { transform: rotate(360deg); }
-        }
-
-        /* Sacred Glow */
-        .sacred-glow {
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes glow {
-            from { filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.5)); }
-            to { filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.8)); }
         }
 
         /* Empty State */
@@ -298,25 +460,110 @@
             margin-bottom: 1rem;
             opacity: 0.5;
         }
+
+        /* Success animation overlay */
+        .success-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .success-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .success-message {
+            background: var(--bg-secondary);
+            padding: 3rem;
+            border-radius: 20px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .success-overlay.active .success-message {
+            transform: scale(1);
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: success-bounce 0.6s ease;
+        }
+
+        @keyframes success-bounce {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats {
+                gap: 1rem;
+                font-size: 0.75rem;
+            }
+            
+            .package-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .filters {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
     </style>
 </head>
 <body>
     <header class="header">
         <div class="logo">
-            <div class="nix-logo sacred-glow">❄️</div>
-            <span>NixOS Package Manager</span>
+            <div class="nix-logo">❄️</div>
+            <span>NixOS GUI</span>
         </div>
         <div class="stats">
-            <span>87,412 packages available</span>
-            <span>•</span>
-            <span>1,247 installed</span>
-            <span>•</span>
-            <span>Generation #142</span>
+            <div class="stat-item">
+                <div class="stat-value">87,412</div>
+                <div>packages</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">1,247</div>
+                <div>installed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">#142</div>
+                <div>generation</div>
+            </div>
         </div>
     </header>
 
     <section class="search-section">
         <div class="search-container">
+            <div class="quick-stats">
+                <div class="quick-stat">
+                    <strong>12</strong> updates available
+                </div>
+                <div class="quick-stat">
+                    <strong>45.2 GB</strong> disk used
+                </div>
+                <div class="quick-stat">
+                    <strong>2 hours</strong> since last update
+                </div>
+            </div>
+            
             <div class="search-input-wrapper">
                 <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="11" cy="11" r="8"/>
@@ -325,17 +572,31 @@
                 <input 
                     type="text" 
                     class="search-input" 
-                    placeholder="Search packages... (e.g., firefox, neovim, docker)"
+                    placeholder="Search 87,412 packages..."
                     id="searchInput"
+                    autocomplete="off"
                 >
             </div>
+            
             <div class="filters">
-                <div class="filter-chip active" data-filter="all">All</div>
-                <div class="filter-chip" data-filter="installed">Installed</div>
-                <div class="filter-chip" data-filter="development">Development</div>
-                <div class="filter-chip" data-filter="productivity">Productivity</div>
-                <div class="filter-chip" data-filter="system">System</div>
-                <div class="filter-chip" data-filter="games">Games</div>
+                <div class="filter-chip active" data-filter="all">
+                    <span>All Packages</span>
+                </div>
+                <div class="filter-chip" data-filter="installed">
+                    <span>Installed</span>
+                </div>
+                <div class="filter-chip" data-filter="development">
+                    <span>Development</span>
+                </div>
+                <div class="filter-chip" data-filter="productivity">
+                    <span>Productivity</span>
+                </div>
+                <div class="filter-chip" data-filter="system">
+                    <span>System Tools</span>
+                </div>
+                <div class="filter-chip" data-filter="games">
+                    <span>Games</span>
+                </div>
             </div>
         </div>
     </section>
@@ -345,7 +606,7 @@
             <!-- Packages will be dynamically inserted here -->
         </div>
         
-        <div class="loading" id="loading">
+        <div class="loading" id="loading" style="display: none;">
             <div class="spinner"></div>
             <p>Searching the Nix universe...</p>
         </div>
@@ -357,69 +618,116 @@
         </div>
     </main>
 
+    <!-- Success Overlay -->
+    <div class="success-overlay" id="successOverlay">
+        <div class="success-message">
+            <div class="success-icon">🎉</div>
+            <h2>Package Installed!</h2>
+            <p id="successText">Firefox has been added to your configuration</p>
+            <button class="btn btn-primary" onclick="closeSuccess()" style="margin-top: 1.5rem;">
+                Continue
+            </button>
+        </div>
+    </div>
+
     <script>
-        // Mock package data
+        // Enhanced mock package data
         const mockPackages = [
             {
                 name: 'firefox',
-                version: '122.0',
+                version: '122.0.1',
                 description: 'A free and open source web browser from Mozilla',
                 installed: true,
-                category: 'productivity'
+                category: 'productivity',
+                size: '215 MB',
+                downloads: '45.2k'
             },
             {
                 name: 'neovim',
                 version: '0.9.5',
                 description: 'Vim-fork focused on extensibility and usability',
                 installed: true,
-                category: 'development'
+                category: 'development',
+                size: '42 MB',
+                downloads: '32.1k'
             },
             {
                 name: 'docker',
                 version: '24.0.7',
                 description: 'Pack, ship and run any application as a lightweight container',
                 installed: false,
-                category: 'development'
+                category: 'development',
+                size: '125 MB',
+                downloads: '67.8k'
             },
             {
                 name: 'vscode',
                 version: '1.85.2',
-                description: 'Open source code editor from Microsoft',
+                description: 'Open source code editor from Microsoft with extensive plugin ecosystem',
                 installed: false,
-                category: 'development'
+                category: 'development',
+                size: '342 MB',
+                downloads: '98.3k'
             },
             {
                 name: 'chromium',
-                version: '121.0',
-                description: 'Open source web browser from Google',
+                version: '121.0.6167.85',
+                description: 'Open source web browser from Google, the foundation of Chrome',
                 installed: false,
-                category: 'productivity'
+                category: 'productivity',
+                size: '198 MB',
+                downloads: '23.7k'
             },
             {
                 name: 'gimp',
                 version: '2.10.36',
-                description: 'The GNU Image Manipulation Program',
+                description: 'The GNU Image Manipulation Program for photo retouching and image composition',
                 installed: false,
-                category: 'productivity'
+                category: 'productivity',
+                size: '89 MB',
+                downloads: '15.4k'
             },
             {
                 name: 'htop',
                 version: '3.3.0',
-                description: 'Interactive process viewer',
+                description: 'Interactive process viewer with a nice terminal UI',
                 installed: true,
-                category: 'system'
+                category: 'system',
+                size: '1.2 MB',
+                downloads: '78.9k'
             },
             {
                 name: 'tmux',
                 version: '3.3a',
-                description: 'Terminal multiplexer',
+                description: 'Terminal multiplexer that lets you switch between programs in one terminal',
                 installed: true,
-                category: 'system'
+                category: 'system',
+                size: '892 KB',
+                downloads: '56.2k'
+            },
+            {
+                name: 'rust',
+                version: '1.75.0',
+                description: 'A language empowering everyone to build reliable and efficient software',
+                installed: false,
+                category: 'development',
+                size: '445 MB',
+                downloads: '43.6k'
+            },
+            {
+                name: 'nodejs',
+                version: '20.11.0',
+                description: 'JavaScript runtime built on Chrome\'s V8 JavaScript engine',
+                installed: false,
+                category: 'development',
+                size: '78 MB',
+                downloads: '112k'
             }
         ];
 
         let currentFilter = 'all';
         let searchTerm = '';
+        let searchTimeout;
 
         function renderPackages() {
             const grid = document.getElementById('packageGrid');
@@ -445,21 +753,27 @@
 
             empty.style.display = 'none';
             
-            grid.innerHTML = filteredPackages.map(pkg => `
-                <div class="package-card">
+            grid.innerHTML = filteredPackages.map((pkg, index) => `
+                <div class="package-card" style="animation-delay: ${index * 0.05}s">
                     <div class="package-header">
-                        <div>
+                        <div class="package-info">
                             <h3 class="package-name">${pkg.name}</h3>
                             <div class="package-version">v${pkg.version}</div>
                         </div>
                         <div class="package-status ${pkg.installed ? 'status-installed' : 'status-available'}">
+                            <span class="status-indicator"></span>
                             ${pkg.installed ? 'Installed' : 'Available'}
                         </div>
                     </div>
                     <p class="package-description">${pkg.description}</p>
+                    <div class="package-meta">
+                        <span>📦 ${pkg.size}</span>
+                        <span>⬇️ ${pkg.downloads}</span>
+                        <span>🏷️ ${pkg.category}</span>
+                    </div>
                     <div class="package-actions">
                         ${pkg.installed ? `
-                            <button class="btn btn-secondary">
+                            <button class="btn btn-secondary" onclick="showConfigPreview('${pkg.name}', 'remove')">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                 </svg>
@@ -473,7 +787,7 @@
                                 Update
                             </button>
                         ` : `
-                            <button class="btn btn-primary" onclick="installPackage('${pkg.name}')">
+                            <button class="btn btn-primary" onclick="showConfigPreview('${pkg.name}', 'install')">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                     <polyline points="7 10 12 15 17 10"/>
@@ -493,33 +807,78 @@
                     </div>
                 </div>
             `).join('');
+
+            // Add entrance animation
+            grid.querySelectorAll('.package-card').forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 50);
+            });
         }
 
-        function installPackage(packageName) {
-            if (confirm(`Install ${packageName}?\n\nThis will add it to your configuration.nix and rebuild your system.`)) {
-                alert(`Installing ${packageName}...\n\nIn a real implementation, this would:\n1. Add to configuration.nix\n2. Run nixos-rebuild test\n3. Show progress\n4. Celebrate success! 🎉`);
-                
+        function showConfigPreview(packageName, action) {
+            const isInstall = action === 'install';
+            const configChange = isInstall ? 
+                `  environment.systemPackages = with pkgs; [\n    # ... existing packages ...\n+   ${packageName}\n  ];` :
+                `  environment.systemPackages = with pkgs; [\n    # ... existing packages ...\n-   ${packageName}\n  ];`;
+
+            const message = `
+${isInstall ? 'Install' : 'Remove'} ${packageName}?
+
+This will modify your configuration.nix:
+
+${configChange}
+
+The system will rebuild after applying changes.
+            `;
+
+            if (confirm(message)) {
                 // Simulate installation
-                const pkg = mockPackages.find(p => p.name === packageName);
-                if (pkg) {
-                    pkg.installed = true;
-                    renderPackages();
-                }
+                setTimeout(() => {
+                    const pkg = mockPackages.find(p => p.name === packageName);
+                    if (pkg) {
+                        pkg.installed = isInstall;
+                        renderPackages();
+                        showSuccess(packageName, isInstall);
+                    }
+                }, 1000);
             }
+        }
+
+        function showSuccess(packageName, wasInstalled) {
+            const overlay = document.getElementById('successOverlay');
+            const text = document.getElementById('successText');
+            
+            text.textContent = wasInstalled ? 
+                `${packageName} has been added to your configuration!` :
+                `${packageName} has been removed from your configuration!`;
+            
+            overlay.classList.add('active');
+        }
+
+        function closeSuccess() {
+            document.getElementById('successOverlay').classList.remove('active');
         }
 
         // Event listeners
         document.getElementById('searchInput').addEventListener('input', (e) => {
             searchTerm = e.target.value;
             
-            // Show loading state for realistic feel
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('packageGrid').innerHTML = '';
-            document.getElementById('emptyState').style.display = 'none';
+            // Debounced search
+            clearTimeout(searchTimeout);
             
-            // Simulate search delay
-            setTimeout(() => {
+            if (searchTerm) {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('packageGrid').style.opacity = '0.5';
+            }
+            
+            searchTimeout = setTimeout(() => {
                 renderPackages();
+                document.getElementById('packageGrid').style.opacity = '1';
             }, 300);
         });
 
@@ -534,6 +893,15 @@
 
         // Initial render
         renderPackages();
+
+        // Add some life to the page
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+            
+            document.body.style.setProperty('--mouse-x', x);
+            document.body.style.setProperty('--mouse-y', y);
+        });
     </script>
 </body>
 </html>

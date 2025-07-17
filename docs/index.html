@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS GUI - Making NixOS Accessible to Everyone</title>
+    <meta name="description" content="A beautiful, intuitive GUI for NixOS that makes system configuration a joy. Built with love, designed with care.">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="NixOS GUI - Making NixOS Accessible">
+    <meta property="og:description" content="Beautiful package management and system configuration for NixOS">
+    <meta property="og:image" content="https://nixos-gui.org/preview.png">
+    <meta property="og:url" content="https://nixos-gui.org">
+    
+    <style>
+        :root {
+            --primary: #5277C3;
+            --primary-light: #7EBAE4;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --bg-dark: #0f172a;
+            --bg-section: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #334155;
+            --success: #10b981;
+            --gradient: linear-gradient(135deg, var(--primary), var(--accent));
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(82, 119, 195, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-30px, -30px) rotate(120deg); }
+            66% { transform: translate(30px, -30px) rotate(240deg); }
+        }
+
+        .hero-content {
+            text-align: center;
+            max-width: 900px;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2rem;
+            background: var(--gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            box-shadow: 0 20px 60px rgba(139, 92, 246, 0.3);
+            animation: gentle-pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes gentle-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 20px 60px rgba(139, 92, 246, 0.3); }
+            50% { transform: scale(1.05); box-shadow: 0 25px 80px rgba(139, 92, 246, 0.4); }
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            font-weight: 300;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 1rem 2.5rem;
+            border-radius: 12px;
+            font-size: 1.125rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(139, 92, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 6rem 2rem;
+            background: var(--bg-section);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .section-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-title {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Demo Section */
+        .demo {
+            padding: 6rem 2rem;
+            background: var(--bg-dark);
+        }
+
+        .demo-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .demo-preview {
+            background: var(--bg-section);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .demo-header {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .demo-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+
+        .demo-dot:first-child { background: #ef4444; }
+        .demo-dot:nth-child(2) { background: #f59e0b; }
+        .demo-dot:nth-child(3) { background: #10b981; }
+
+        .demo-content {
+            padding: 2rem;
+        }
+
+        .demo-iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            background: var(--bg-dark);
+        }
+
+        /* Philosophy Section */
+        .philosophy {
+            padding: 6rem 2rem;
+            background: var(--bg-section);
+            text-align: center;
+        }
+
+        .philosophy-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .philosophy-quote {
+            font-size: 1.5rem;
+            font-style: italic;
+            color: var(--text-secondary);
+            margin: 2rem 0;
+            position: relative;
+        }
+
+        .philosophy-quote::before,
+        .philosophy-quote::after {
+            content: '"';
+            font-size: 3rem;
+            color: var(--accent);
+            position: absolute;
+            opacity: 0.3;
+        }
+
+        .philosophy-quote::before {
+            top: -1rem;
+            left: -2rem;
+        }
+
+        .philosophy-quote::after {
+            bottom: -2rem;
+            right: -2rem;
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 6rem 2rem;
+            background: var(--bg-dark);
+            text-align: center;
+        }
+
+        .cta-content {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Footer */
+        footer {
+            padding: 3rem 2rem;
+            background: var(--bg-section);
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero-subtitle {
+                font-size: 1.25rem;
+            }
+            
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .demo-iframe {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-logo">❄️</div>
+            <h1>NixOS GUI</h1>
+            <p class="hero-subtitle">
+                Making NixOS accessible to everyone with a beautiful, 
+                intuitive interface that turns system configuration into a joy
+            </p>
+            <div class="cta-buttons">
+                <a href="#demo" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    See It In Action
+                </a>
+                <a href="https://github.com/Luminous-Dynamics/nixos-gui" class="btn btn-secondary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                    </svg>
+                    View on GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Built with Love, Designed with Care</h2>
+                <p class="section-subtitle">Every feature crafted to make your experience delightful</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3 class="feature-title">Beautiful Interface</h3>
+                    <p class="feature-description">
+                        A modern, clean design that makes package management a visual pleasure. 
+                        No more command-line intimidation.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3 class="feature-title">Safety First</h3>
+                    <p class="feature-description">
+                        Preview every change before applying. Easy rollback to previous generations. 
+                        Your system is always protected.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📚</div>
+                    <h3 class="feature-title">Learn As You Go</h3>
+                    <p class="feature-description">
+                        See the generated Nix code for every action. Understand what's happening 
+                        and learn the Nix language naturally.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🚀</div>
+                    <h3 class="feature-title">Lightning Fast</h3>
+                    <p class="feature-description">
+                        Instant search across 87,000+ packages. Native performance with 
+                        Rust backend and optimized UI.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">💝</div>
+                    <h3 class="feature-title">Thoughtful Details</h3>
+                    <p class="feature-description">
+                        Success celebrations, helpful tooltips, and kind error messages. 
+                        Every interaction designed with care.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3 class="feature-title">Community Driven</h3>
+                    <p class="feature-description">
+                        Open source and built with the community. Your feedback and 
+                        contributions shape the future.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section class="demo" id="demo">
+        <div class="demo-container">
+            <div class="section-header">
+                <h2>See It In Action</h2>
+                <p class="section-subtitle">A live demo of the package manager interface</p>
+            </div>
+            
+            <div class="demo-preview">
+                <div class="demo-header">
+                    <div class="demo-dot"></div>
+                    <div class="demo-dot"></div>
+                    <div class="demo-dot"></div>
+                </div>
+                <div class="demo-content">
+                    <iframe src="../mvp/index-v2.html" class="demo-iframe" title="NixOS GUI Demo"></iframe>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Philosophy Section -->
+    <section class="philosophy">
+        <div class="philosophy-content">
+            <h2>Our Philosophy</h2>
+            <p class="philosophy-quote">
+                Technology should empower everyone, not just experts
+            </p>
+            <p>
+                We believe that powerful tools like NixOS should be accessible to all. 
+                By wrapping complexity in beauty and safety in simplicity, we're making 
+                declarative system configuration available to a whole new audience.
+            </p>
+            <p style="margin-top: 2rem;">
+                This is more than a GUI—it's a bridge between power and people, 
+                a tool built with love for the community.
+            </p>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="cta-content">
+            <h2>Join the Movement</h2>
+            <p style="margin-bottom: 2rem;">
+                Help us make NixOS accessible to everyone. Whether you're a designer, 
+                developer, or enthusiastic user, there's a place for you.
+            </p>
+            <div class="cta-buttons">
+                <a href="https://github.com/Luminous-Dynamics/nixos-gui" class="btn btn-primary">
+                    Contribute on GitHub
+                </a>
+                <a href="https://discourse.nixos.org" class="btn btn-secondary">
+                    Join the Discussion
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-links">
+            <a href="https://github.com/Luminous-Dynamics/nixos-gui">GitHub</a>
+            <a href="https://discourse.nixos.org">Discourse</a>
+            <a href="https://matrix.to/#/#nixos:nixos.org">Matrix</a>
+            <a href="/RFC_DRAFT.md">RFC</a>
+            <a href="/TROJAN_HORSE_OF_LOVE.md">Philosophy</a>
+        </div>
+        <p style="color: var(--text-secondary);">
+            Built with 💝 by the Luminous Dynamics team and contributors
+        </p>
+    </footer>
+
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add some interactivity
+        const hero = document.querySelector('.hero');
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+            
+            hero.style.setProperty('--mouse-x', x);
+            hero.style.setProperty('--mouse-y', y);
+        });
+    </script>
+</body>
+</html>
