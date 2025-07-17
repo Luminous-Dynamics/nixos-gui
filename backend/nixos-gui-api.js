@@ -13,10 +13,16 @@ const { promises: fs } = require('fs');
 const path = require('path');
 const os = require('os');
 const NixInterface = require('./nix-interface');
+const RealNixSearch = require('./nix-search-real');
+const ConfigReader = require('./config-reader');
+const SafeInstaller = require('./safe-installer');
 
 const app = express();
 const PORT = process.env.PORT || 7778;
 const nixInterface = new NixInterface();
+const realNixSearch = new RealNixSearch();
+const configReader = new ConfigReader();
+const safeInstaller = new SafeInstaller();
 
 // Middleware
 app.use(cors());
@@ -52,26 +58,32 @@ app.get('/api/packages/search', async (req, res) => {
   try {
     const { query = '', category = 'all' } = req.query;
     
-    // Use real Nix search if available
-    if (process.env.USE_REAL_NIX !== 'false') {
-      try {
-        const packages = await nixInterface.searchPackages(query || 'firefox vim git nodejs');
-        
-        // Filter by category if specified
-        const filtered = category === 'all' 
-          ? packages 
-          : packages.filter(pkg => pkg.category === category);
-          
-        res.json(filtered);
-        return;
-      } catch (nixError) {
-        console.error('Nix search failed, falling back to mock data:', nixError);
+    // Try real Nix search first
+    try {
+      console.log(`Searching packages: query="${query}", category="${category}"`);
+      const packages = await realNixSearch.searchPackages(query);
+      
+      // Filter by category if specified
+      const filtered = category === 'all' 
+        ? packages 
+        : packages.filter(pkg => pkg.category === category);
+      
+      console.log(`Found ${filtered.length} packages`);
+      res.json(filtered);
+      return;
+    } catch (nixError) {
+      console.error('Real Nix search failed:', nixError.message);
+      
+      // Only fall back to mock data if explicitly in demo mode
+      if (process.env.DEMO_MODE === 'true') {
+        console.log('Falling back to mock data (DEMO_MODE=true)');
+        const packages = await searchPackages(query, category);
+        res.json(packages);
+      } else {
+        // Return empty results with error message
+        res.json([]);
       }
     }
-    
-    // Fallback to mock data
-    const packages = await searchPackages(query, category);
-    res.json(packages);
   } catch (error) {
     console.error('Error searching packages:', error);
     res.status(500).json({ error: 'Failed to search packages' });
@@ -88,6 +100,26 @@ app.get('/api/packages/installed', async (req, res) => {
   } catch (error) {
     console.error('Error getting installed packages:', error);
     res.status(500).json({ error: 'Failed to get installed packages' });
+  }
+});
+
+/**
+ * Preview package installation
+ */
+app.post('/api/packages/preview', async (req, res) => {
+  try {
+    const { packageName } = req.body;
+    
+    if (!packageName) {
+      return res.status(400).json({ error: 'Missing packageName' });
+    }
+    
+    console.log(`Getting installation preview for: ${packageName}`);
+    const preview = await realNixSearch.getInstallPreview(packageName);
+    res.json(preview);
+  } catch (error) {
+    console.error('Error generating preview:', error);
+    res.status(500).json({ error: 'Failed to generate preview' });
   }
 });
 
@@ -111,6 +143,59 @@ app.post('/api/config/preview', async (req, res) => {
 });
 
 /**
+ * Create installation operation (requires confirmation)
+ */
+app.post('/api/packages/install', async (req, res) => {
+  try {
+    const { packageName } = req.body;
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
+    if (!packageName) {
+      return res.status(400).json({ error: 'Missing packageName' });
+    }
+    
+    console.log(`Creating installation operation for: ${packageName}`);
+    const operation = await safeInstaller.createInstallOperation(packageName, userAgent);
+    res.json(operation);
+  } catch (error) {
+    console.error('Error creating installation:', error);
+    res.status(500).json({ error: 'Failed to create installation operation' });
+  }
+});
+
+/**
+ * Confirm and execute installation
+ */
+app.post('/api/packages/confirm-install', async (req, res) => {
+  try {
+    const { token, confirmation } = req.body;
+    
+    if (!token || !confirmation) {
+      return res.status(400).json({ error: 'Missing token or confirmation' });
+    }
+    
+    const result = await safeInstaller.confirmAndInstall(token, confirmation);
+    res.json(result);
+  } catch (error) {
+    console.error('Error confirming installation:', error);
+    res.status(500).json({ error: 'Failed to confirm installation' });
+  }
+});
+
+/**
+ * Get rollback information
+ */
+app.get('/api/rollback/info', async (req, res) => {
+  try {
+    const info = await safeInstaller.getRollbackInfo();
+    res.json(info);
+  } catch (error) {
+    console.error('Error getting rollback info:', error);
+    res.status(500).json({ error: 'Failed to get rollback information' });
+  }
+});
+
+/**
  * Apply configuration changes
  */
 app.post('/api/config/apply', async (req, res) => {
@@ -126,6 +211,19 @@ app.post('/api/config/apply', async (req, res) => {
   } catch (error) {
     console.error('Error applying configuration:', error);
     res.status(500).json({ error: 'Failed to apply configuration' });
+  }
+});
+
+/**
+ * Get current configuration (read-only)
+ */
+app.get('/api/config/current', async (req, res) => {
+  try {
+    const config = await configReader.readConfiguration();
+    res.json(config);
+  } catch (error) {
+    console.error('Error reading configuration:', error);
+    res.status(500).json({ error: 'Failed to read configuration' });
   }
 });
 
