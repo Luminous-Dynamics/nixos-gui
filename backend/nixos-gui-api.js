@@ -16,6 +16,7 @@ const NixInterface = require('./nix-interface');
 const RealNixSearch = require('./nix-search-real');
 const ConfigReader = require('./config-reader');
 const SafeInstaller = require('./safe-installer');
+const ServiceManager = require('./service-manager');
 
 const app = express();
 const PORT = process.env.PORT || 7778;
@@ -27,11 +28,19 @@ const safeInstaller = new SafeInstaller();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from mvp directory
+app.use(express.static(path.join(__dirname, '../mvp')));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Sacred greeting
 console.log('🌟 NixOS GUI API Starting...');
 console.log('💝 Making NixOS accessible with love');
+
+// Default route - redirect to dashboard
+app.get('/', (req, res) => {
+  res.redirect('/dashboard.html');
+});
 
 // Cache for package data
 let packageCache = null;
@@ -256,6 +265,96 @@ app.post('/api/generations/switch', async (req, res) => {
   } catch (error) {
     console.error('Error switching generation:', error);
     res.status(500).json({ error: 'Failed to switch generation' });
+  }
+});
+
+/**
+ * Get all services
+ */
+app.get('/api/services', async (req, res) => {
+  try {
+    const services = await serviceManager.getAllServices();
+    res.json(services);
+  } catch (error) {
+    console.error('Error getting services:', error);
+    res.status(500).json({ error: 'Failed to get services' });
+  }
+});
+
+/**
+ * Get service details
+ */
+app.get('/api/services/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const details = await serviceManager.getServiceDetails(name);
+    
+    if (!details) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    
+    res.json(details);
+  } catch (error) {
+    console.error('Error getting service details:', error);
+    res.status(500).json({ error: 'Failed to get service details' });
+  }
+});
+
+/**
+ * Start a service
+ */
+app.post('/api/services/:name/start', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const result = await serviceManager.startService(name);
+    res.json(result);
+  } catch (error) {
+    console.error('Error starting service:', error);
+    res.status(500).json({ error: 'Failed to start service' });
+  }
+});
+
+/**
+ * Stop a service
+ */
+app.post('/api/services/:name/stop', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const result = await serviceManager.stopService(name);
+    res.json(result);
+  } catch (error) {
+    console.error('Error stopping service:', error);
+    res.status(500).json({ error: 'Failed to stop service' });
+  }
+});
+
+/**
+ * Restart a service
+ */
+app.post('/api/services/:name/restart', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const result = await serviceManager.restartService(name);
+    res.json(result);
+  } catch (error) {
+    console.error('Error restarting service:', error);
+    res.status(500).json({ error: 'Failed to restart service' });
+  }
+});
+
+/**
+ * Get service configuration for NixOS
+ */
+app.post('/api/services/:name/config', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { enable } = req.body;
+    
+    const config = serviceManager.generateServiceConfig(name, enable);
+    res.json(config);
+  } catch (error) {
+    console.error('Error generating service config:', error);
+    res.status(500).json({ error: 'Failed to generate service configuration' });
   }
 });
 

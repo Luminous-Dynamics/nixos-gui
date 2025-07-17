@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS GUI - Package Manager (Real)</title>
+    <style>
+        :root {
+            --sacred-purple: #8b5cf6;
+            --sacred-blue: #3b82f6;
+            --sacred-green: #10b981;
+            --sacred-gold: #f59e0b;
+            --sacred-red: #ef4444;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #475569;
+            --nix-blue: #5277C3;
+            --nix-light: #7EBAE4;
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, rgba(123, 104, 238, 0.03) 0%, transparent 50%);
+            animation: drift 20s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-50px, -50px) rotate(120deg); }
+            66% { transform: translate(50px, -50px) rotate(240deg); }
+        }
+
+        /* Header */
+        .header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .nix-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--nix-blue), var(--nix-light));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(82, 119, 195, 0.3);
+            animation: gentle-pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes gentle-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .stats {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(51, 65, 85, 0.5);
+            border-radius: 20px;
+            font-size: 0.875rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--sacred-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--sacred-gold);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Search Section */
+        .search-section {
+            padding: 2rem;
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            z-index: 5;
+        }
+
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1.25rem 3.5rem;
+            font-size: 1.125rem;
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-primary);
+            transition: var(--transition);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--sacred-purple);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1),
+                        0 10px 40px -10px rgba(139, 92, 246, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .search-input:focus ~ .search-icon {
+            color: var(--sacred-purple);
+        }
+
+        /* Package Grid */
+        .package-container {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .package-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 1.5rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding-bottom: 2rem;
+        }
+
+        .package-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            transition: var(--transition);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .package-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--sacred-purple), var(--sacred-blue));
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .package-card:hover::before {
+            transform: translateX(0);
+        }
+
+        .package-card:hover {
+            border-color: var(--sacred-purple);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4),
+                        0 0 0 1px rgba(139, 92, 246, 0.2);
+        }
+
+        .package-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .package-info {
+            flex: 1;
+        }
+
+        .package-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .package-version {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .package-status {
+            padding: 0.375rem 0.875rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        .status-installed {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--sacred-green);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-available {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--sacred-purple);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .package-description {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .package-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .package-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(51, 65, 85, 0.6);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--sacred-purple);
+            color: var(--sacred-purple);
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--sacred-purple);
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Progress Modal */
+        .progress-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .progress-modal.active {
+            display: flex;
+        }
+
+        .progress-content {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .progress-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            position: relative;
+        }
+
+        .progress-spinner {
+            width: 100%;
+            height: 100%;
+            border: 4px solid var(--border);
+            border-top-color: var(--sacred-purple);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .progress-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-message {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .progress-details {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        /* Confirmation Modal */
+        .confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .confirm-modal.active {
+            display: flex;
+        }
+
+        .confirm-content {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            border: 1px solid var(--border);
+        }
+
+        .confirm-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .confirm-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(245, 158, 11, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--sacred-gold);
+            font-size: 1.5rem;
+        }
+
+        .confirm-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .confirm-details {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .confirm-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .rollback-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+        }
+
+        /* Error State */
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            color: var(--sacred-red);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1rem 0;
+        }
+
+        /* Success State */
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            color: var(--sacred-green);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="nix-logo">❄️</div>
+            <span>NixOS GUI - Real Package Manager</span>
+        </div>
+        <div class="connection-status">
+            <span class="status-dot" id="connectionDot"></span>
+            <span id="connectionText">Connecting to Nix...</span>
+        </div>
+        <div class="stats" id="systemStats">
+            <div class="stat-item">
+                <div class="stat-value">-</div>
+                <div>packages</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">-</div>
+                <div>installed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">#-</div>
+                <div>generation</div>
+            </div>
+        </div>
+    </header>
+
+    <section class="search-section">
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    placeholder="Search real NixOS packages..."
+                    id="searchInput"
+                    autocomplete="off"
+                >
+            </div>
+        </div>
+    </section>
+
+    <main class="package-container">
+        <div class="package-grid" id="packageGrid">
+            <!-- Packages will be dynamically loaded here -->
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Searching NixOS packages...</p>
+        </div>
+        
+        <div id="errorContainer"></div>
+    </main>
+
+    <!-- Progress Modal -->
+    <div class="progress-modal" id="progressModal">
+        <div class="progress-content">
+            <div class="progress-icon">
+                <div class="progress-spinner"></div>
+            </div>
+            <h2 class="progress-title" id="progressTitle">Installing Package</h2>
+            <p class="progress-message" id="progressMessage">Please wait...</p>
+            <div class="progress-details" id="progressDetails"></div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="confirm-modal" id="confirmModal">
+        <div class="confirm-content">
+            <div class="confirm-header">
+                <div class="confirm-icon">⚠️</div>
+                <h2 class="confirm-title" id="confirmTitle">Confirm Installation</h2>
+            </div>
+            <div class="confirm-details" id="confirmDetails"></div>
+            <div class="rollback-info">
+                <strong>Safety Note:</strong> You can always rollback if something goes wrong using:
+                <code id="rollbackCommand">nix-env --rollback</code>
+            </div>
+            <div class="confirm-actions">
+                <button class="btn btn-secondary" onclick="cancelOperation()">Cancel</button>
+                <button class="btn btn-primary" id="confirmButton" onclick="confirmOperation()">
+                    Confirm Installation
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_URL = 'http://localhost:7778/api';
+        let packages = [];
+        let searchTimeout;
+        let currentOperation = null;
+
+        // Initialize
+        async function init() {
+            await checkConnection();
+            await updateSystemInfo();
+            await searchPackages(''); // Load initial packages
+            setupEventListeners();
+        }
+
+        // Check connection to backend
+        async function checkConnection() {
+            const dot = document.getElementById('connectionDot');
+            const text = document.getElementById('connectionText');
+            
+            try {
+                const response = await fetch(`${API_URL}/system/info`);
+                if (response.ok) {
+                    dot.classList.remove('offline');
+                    text.textContent = 'Connected to NixOS';
+                    return true;
+                }
+            } catch (error) {
+                console.error('Connection error:', error);
+            }
+            
+            dot.classList.add('offline');
+            text.textContent = 'Backend offline';
+            return false;
+        }
+
+        // Update system information
+        async function updateSystemInfo() {
+            try {
+                const response = await fetch(`${API_URL}/rollback/info`);
+                if (!response.ok) return;
+                
+                const info = await response.json();
+                if (info.generations && info.generations.length > 0) {
+                    const current = info.generations.find(g => g.current);
+                    if (current) {
+                        document.querySelector('.stat-value').textContent = current.number;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to get system info:', error);
+            }
+        }
+
+        // Search packages
+        async function searchPackages(query) {
+            const loading = document.getElementById('loading');
+            const grid = document.getElementById('packageGrid');
+            const errorContainer = document.getElementById('errorContainer');
+            
+            loading.style.display = 'block';
+            grid.style.display = 'none';
+            errorContainer.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_URL}/packages/search?query=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error('Search failed');
+                
+                packages = await response.json();
+                renderPackages();
+            } catch (error) {
+                console.error('Search error:', error);
+                errorContainer.innerHTML = `
+                    <div class="error-message">
+                        <span>❌</span>
+                        <span>Failed to search packages. Make sure the backend is running.</span>
+                    </div>
+                `;
+            } finally {
+                loading.style.display = 'none';
+                grid.style.display = 'grid';
+            }
+        }
+
+        // Render packages
+        function renderPackages() {
+            const grid = document.getElementById('packageGrid');
+            
+            if (packages.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-secondary);">No packages found. Try a different search term.</p>';
+                return;
+            }
+            
+            grid.innerHTML = packages.map(pkg => `
+                <div class="package-card">
+                    <div class="package-header">
+                        <div class="package-info">
+                            <h3 class="package-name">${escapeHtml(pkg.name)}</h3>
+                            <div class="package-version">v${escapeHtml(pkg.version)}</div>
+                        </div>
+                        <div class="package-status ${pkg.installed ? 'status-installed' : 'status-available'}">
+                            <span class="status-indicator"></span>
+                            ${pkg.installed ? 'Installed' : 'Available'}
+                        </div>
+                    </div>
+                    <p class="package-description">${escapeHtml(pkg.description)}</p>
+                    <div class="package-meta">
+                        ${pkg.license ? `<span>📄 ${escapeHtml(pkg.license)}</span>` : ''}
+                        ${pkg.category ? `<span>🏷️ ${escapeHtml(pkg.category)}</span>` : ''}
+                        ${pkg.unfree ? '<span>⚠️ Unfree</span>' : ''}
+                    </div>
+                    <div class="package-actions">
+                        ${pkg.installed ? `
+                            <button class="btn btn-secondary" onclick="uninstallPackage('${escapeHtml(pkg.name)}')">
+                                Remove
+                            </button>
+                        ` : `
+                            <button class="btn btn-primary" onclick="previewInstall('${escapeHtml(pkg.name)}')">
+                                Install
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Preview installation
+        async function previewInstall(packageName) {
+            showProgress('Getting Installation Preview', `Checking dependencies for ${packageName}...`);
+            
+            try {
+                const response = await fetch(`${API_URL}/packages/preview`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ packageName })
+                });
+                
+                if (!response.ok) throw new Error('Preview failed');
+                
+                const preview = await response.json();
+                hideProgress();
+                showConfirmation(packageName, preview);
+            } catch (error) {
+                hideProgress();
+                alert(`Failed to get installation preview: ${error.message}`);
+            }
+        }
+
+        // Show confirmation dialog
+        function showConfirmation(packageName, preview) {
+            document.getElementById('confirmTitle').textContent = `Install ${packageName}?`;
+            
+            let details = `<h4>Package: ${packageName}</h4>`;
+            
+            if (preview.changes) {
+                if (preview.changes.toInstall.length > 0) {
+                    details += `<p><strong>Will install:</strong></p><ul>`;
+                    preview.changes.toInstall.forEach(pkg => {
+                        details += `<li>${pkg}</li>`;
+                    });
+                    details += '</ul>';
+                }
+                
+                if (preview.changes.toUpgrade.length > 0) {
+                    details += `<p><strong>Will upgrade:</strong></p><ul>`;
+                    preview.changes.toUpgrade.forEach(upgrade => {
+                        details += `<li>${upgrade.from} → ${upgrade.to}</li>`;
+                    });
+                    details += '</ul>';
+                }
+            }
+            
+            if (preview.warning) {
+                details += `<div class="error-message" style="margin-top: 1rem;">
+                    <span>⚠️</span>
+                    <span>${preview.warning}</span>
+                </div>`;
+            }
+            
+            document.getElementById('confirmDetails').innerHTML = details;
+            document.getElementById('rollbackCommand').textContent = preview.rollbackCommand || 'nix-env --rollback';
+            
+            // Store current operation
+            currentOperation = { packageName, preview };
+            
+            document.getElementById('confirmModal').classList.add('active');
+        }
+
+        // Confirm operation
+        async function confirmOperation() {
+            if (!currentOperation) return;
+            
+            const { packageName } = currentOperation;
+            document.getElementById('confirmModal').classList.remove('active');
+            
+            showProgress('Installing Package', `Creating installation operation for ${packageName}...`);
+            
+            try {
+                // Step 1: Create installation operation
+                let response = await fetch(`${API_URL}/packages/install`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ packageName })
+                });
+                
+                if (!response.ok) throw new Error('Failed to create installation');
+                
+                const operation = await response.json();
+                updateProgress(`Got confirmation token. Installing ${packageName}...`);
+                
+                // Step 2: Confirm installation
+                response = await fetch(`${API_URL}/packages/confirm-install`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        token: operation.token,
+                        confirmation: 'CONFIRM'
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Installation failed');
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    hideProgress();
+                    showSuccess(packageName, result);
+                    // Refresh package list
+                    setTimeout(() => searchPackages(document.getElementById('searchInput').value), 1000);
+                } else {
+                    throw new Error(result.error || 'Installation failed');
+                }
+            } catch (error) {
+                hideProgress();
+                showError(error.message);
+            }
+            
+            currentOperation = null;
+        }
+
+        // Cancel operation
+        function cancelOperation() {
+            document.getElementById('confirmModal').classList.remove('active');
+            currentOperation = null;
+        }
+
+        // Show progress
+        function showProgress(title, message) {
+            document.getElementById('progressTitle').textContent = title;
+            document.getElementById('progressMessage').textContent = message;
+            document.getElementById('progressDetails').innerHTML = '';
+            document.getElementById('progressModal').classList.add('active');
+        }
+
+        // Update progress
+        function updateProgress(message) {
+            const details = document.getElementById('progressDetails');
+            details.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+            details.scrollTop = details.scrollHeight;
+        }
+
+        // Hide progress
+        function hideProgress() {
+            document.getElementById('progressModal').classList.remove('active');
+        }
+
+        // Show success message
+        function showSuccess(packageName, result) {
+            const message = `
+                <div class="success-message">
+                    <span>✅</span>
+                    <div>
+                        <strong>${packageName} installed successfully!</strong><br>
+                        <small>New generation: ${result.newGeneration || 'N/A'}</small><br>
+                        <small>Rollback: ${result.rollbackCommand || 'nix-env --rollback'}</small>
+                    </div>
+                </div>
+            `;
+            
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = message;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Show error message
+        function showError(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = `
+                <div class="error-message">
+                    <span>❌</span>
+                    <span>${message}</span>
+                </div>
+            `;
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const searchInput = document.getElementById('searchInput');
+            
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    searchPackages(e.target.value);
+                }, 300);
+            });
+            
+            // Periodic connection check
+            setInterval(checkConnection, 30000);
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

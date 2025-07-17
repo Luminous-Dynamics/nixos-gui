@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS GUI - Package Manager</title>
+    <style>
+        :root {
+            --sacred-purple: #8b5cf6;
+            --sacred-blue: #3b82f6;
+            --sacred-green: #10b981;
+            --sacred-gold: #f59e0b;
+            --sacred-red: #ef4444;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #475569;
+            --nix-blue: #5277C3;
+            --nix-light: #7EBAE4;
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, rgba(123, 104, 238, 0.03) 0%, transparent 50%);
+            animation: drift 20s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-50px, -50px) rotate(120deg); }
+            66% { transform: translate(50px, -50px) rotate(240deg); }
+        }
+
+        /* Header */
+        .header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .nix-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--nix-blue), var(--nix-light));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(82, 119, 195, 0.3);
+            animation: gentle-pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes gentle-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .stats {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(51, 65, 85, 0.5);
+            border-radius: 20px;
+            font-size: 0.875rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--sacred-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--sacred-gold);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Search Section */
+        .search-section {
+            padding: 2rem;
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            z-index: 5;
+        }
+
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1.25rem 3.5rem;
+            font-size: 1.125rem;
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-primary);
+            transition: var(--transition);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--sacred-purple);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1),
+                        0 10px 40px -10px rgba(139, 92, 246, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .search-input:focus ~ .search-icon {
+            color: var(--sacred-purple);
+        }
+
+        /* Quick stats bar */
+        .quick-stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .quick-stat {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem;
+            border-radius: 6px;
+            background: rgba(51, 65, 85, 0.3);
+        }
+
+        .filters {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            padding: 0.625rem 1.25rem;
+            background: rgba(51, 65, 85, 0.5);
+            border: 1px solid transparent;
+            border-radius: 24px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .filter-chip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .filter-chip span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .filter-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .filter-chip.active {
+            border-color: var(--sacred-purple);
+            color: white;
+        }
+
+        .filter-chip.active::before {
+            opacity: 1;
+        }
+
+        /* Package Grid */
+        .package-container {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .package-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 1.5rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding-bottom: 2rem;
+        }
+
+        .package-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            transition: var(--transition);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .package-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--sacred-purple), var(--sacred-blue));
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .package-card:hover::before {
+            transform: translateX(0);
+        }
+
+        .package-card:hover {
+            border-color: var(--sacred-purple);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4),
+                        0 0 0 1px rgba(139, 92, 246, 0.2);
+        }
+
+        .package-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .package-info {
+            flex: 1;
+        }
+
+        .package-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .package-version {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .package-status {
+            padding: 0.375rem 0.875rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        .status-installed {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--sacred-green);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-available {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--sacred-purple);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .package-description {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .package-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .package-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(51, 65, 85, 0.6);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            border-color: var(--sacred-purple);
+            color: var(--sacred-purple);
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--sacred-purple);
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Progress Modal */
+        .progress-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .progress-modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .progress-content {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+        }
+
+        .progress-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            border: 3px solid var(--border);
+            border-top-color: var(--sacred-purple);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .progress-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-message {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--sacred-purple), var(--sacred-blue));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Installation Confirmation Dialog */
+        .confirm-dialog {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 16px;
+            max-width: 600px;
+            width: 90%;
+            border: 1px solid var(--border);
+        }
+
+        .confirm-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .confirm-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(245, 158, 11, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--sacred-gold);
+            font-size: 1.5rem;
+        }
+
+        .confirm-details {
+            background: var(--bg-primary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.875rem;
+        }
+
+        .confirm-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .confirm-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Fira Code', monospace;
+            margin: 1rem 0;
+        }
+
+        /* Rollback Info */
+        .rollback-info {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.875rem;
+        }
+
+        .rollback-command {
+            font-family: 'Fira Code', monospace;
+            background: var(--bg-primary);
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats {
+                gap: 1rem;
+                font-size: 0.75rem;
+            }
+            
+            .package-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .filters {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="nix-logo">❄️</div>
+            <span>NixOS GUI</span>
+        </div>
+        <div class="connection-status">
+            <span class="status-dot" id="connectionDot"></span>
+            <span id="connectionText">Connecting...</span>
+        </div>
+        <div class="stats" id="systemStats">
+            <div class="stat-item">
+                <div class="stat-value">-</div>
+                <div>packages</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">-</div>
+                <div>installed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">#-</div>
+                <div>generation</div>
+            </div>
+        </div>
+    </header>
+
+    <section class="search-section">
+        <div class="search-container">
+            <div class="quick-stats" id="quickStats">
+                <div class="quick-stat">
+                    Loading system info...
+                </div>
+            </div>
+            
+            <div class="search-input-wrapper">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    placeholder="Search packages..."
+                    id="searchInput"
+                    autocomplete="off"
+                >
+            </div>
+            
+            <div class="filters">
+                <div class="filter-chip active" data-filter="all">
+                    <span>All Packages</span>
+                </div>
+                <div class="filter-chip" data-filter="installed">
+                    <span>Installed</span>
+                </div>
+                <div class="filter-chip" data-filter="development">
+                    <span>Development</span>
+                </div>
+                <div class="filter-chip" data-filter="productivity">
+                    <span>Productivity</span>
+                </div>
+                <div class="filter-chip" data-filter="system">
+                    <span>System Tools</span>
+                </div>
+                <div class="filter-chip" data-filter="multimedia">
+                    <span>Multimedia</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <main class="package-container">
+        <div class="package-grid" id="packageGrid">
+            <!-- Packages will be dynamically inserted here -->
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Searching packages...</p>
+        </div>
+        
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <div class="empty-icon">📦</div>
+            <h3>No packages found</h3>
+            <p>Try adjusting your search or filters</p>
+        </div>
+    </main>
+
+    <!-- Progress Modal -->
+    <div class="progress-modal" id="progressModal">
+        <div class="progress-content" id="progressContent">
+            <div class="progress-icon"></div>
+            <h3 class="progress-title" id="progressTitle">Processing...</h3>
+            <p class="progress-message" id="progressMessage">Please wait</p>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <div class="progress-modal" id="confirmModal">
+        <div class="confirm-dialog">
+            <div class="confirm-header">
+                <div class="confirm-icon">⚠️</div>
+                <div>
+                    <h3 id="confirmTitle">Confirm Installation</h3>
+                    <p style="color: var(--text-secondary);" id="confirmSubtitle">This will modify your system</p>
+                </div>
+            </div>
+            
+            <div id="confirmDetails" class="confirm-details"></div>
+            
+            <div class="rollback-info" id="rollbackInfo" style="display: none;">
+                <strong>🔄 Rollback Available</strong>
+                <p>If something goes wrong, you can rollback with:</p>
+                <div class="rollback-command" id="rollbackCommand">nix-env --rollback</div>
+            </div>
+            
+            <p style="margin: 1rem 0;">Type <strong>CONFIRM</strong> to proceed:</p>
+            <input type="text" class="confirm-input" id="confirmInput" placeholder="Type CONFIRM here">
+            
+            <div class="confirm-actions">
+                <button class="btn btn-secondary" onclick="cancelOperation()">Cancel</button>
+                <button class="btn btn-primary" id="confirmButton" onclick="proceedWithOperation()" disabled>Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API configuration
+        const API_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:7778/api' 
+            : '/api';
+        
+        let packages = [];
+        let currentFilter = 'all';
+        let searchTerm = '';
+        let searchTimeout;
+        let connectionStatus = 'checking';
+        let pendingOperation = null;
+
+        // Initialize the app
+        async function init() {
+            await checkConnection();
+            await loadSystemInfo();
+            await loadPackages();
+            setupEventListeners();
+            
+            // Check rollback info
+            checkRollbackInfo();
+        }
+
+        // Check API connection
+        async function checkConnection() {
+            const dot = document.getElementById('connectionDot');
+            const text = document.getElementById('connectionText');
+            
+            try {
+                const response = await fetch(`${API_URL}/system/info`);
+                if (response.ok) {
+                    connectionStatus = 'online';
+                    dot.classList.remove('offline');
+                    text.textContent = 'Connected';
+                } else {
+                    throw new Error('API not responding');
+                }
+            } catch (error) {
+                connectionStatus = 'offline';
+                dot.classList.add('offline');
+                text.textContent = 'Offline Mode';
+                console.log('Running in offline mode');
+            }
+        }
+
+        // Load system information
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch(`${API_URL}/system/info`);
+                if (response.ok) {
+                    const data = await response.json();
+                    updateSystemStats(data);
+                }
+            } catch (error) {
+                console.error('Failed to load system info:', error);
+            }
+        }
+
+        // Update system stats display
+        function updateSystemStats(info) {
+            const stats = document.getElementById('systemStats');
+            stats.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value">${info.installedPackages || '-'}</div>
+                    <div>packages</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${info.generation || '-'}</div>
+                    <div>generation</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${info.nixosVersion?.split(' ')[0] || '-'}</div>
+                    <div>nixos</div>
+                </div>
+            `;
+
+            const quickStats = document.getElementById('quickStats');
+            quickStats.innerHTML = `
+                <div class="quick-stat">
+                    <strong>${info.nixVersion || 'Nix'}</strong>
+                </div>
+                <div class="quick-stat">
+                    <strong>${info.systemSize || '-'}</strong> system
+                </div>
+                <div class="quick-stat">
+                    <strong>${new Date().toLocaleDateString()}</strong>
+                </div>
+            `;
+        }
+
+        // Load packages
+        async function loadPackages() {
+            const loading = document.getElementById('loading');
+            const grid = document.getElementById('packageGrid');
+            const empty = document.getElementById('emptyState');
+            
+            loading.style.display = 'block';
+            grid.style.display = 'none';
+            empty.style.display = 'none';
+
+            try {
+                const params = new URLSearchParams({
+                    query: searchTerm,
+                    category: currentFilter
+                });
+                
+                const response = await fetch(`${API_URL}/packages/search?${params}`);
+                packages = await response.json();
+                
+                if (packages.length === 0 && connectionStatus === 'online') {
+                    empty.style.display = 'block';
+                } else {
+                    renderPackages();
+                }
+            } catch (error) {
+                console.error('Failed to load packages:', error);
+                empty.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Render packages
+        function renderPackages() {
+            const grid = document.getElementById('packageGrid');
+            const empty = document.getElementById('emptyState');
+            
+            if (packages.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.style.display = 'grid';
+            
+            grid.innerHTML = packages.map((pkg, index) => `
+                <div class="package-card" style="animation-delay: ${Math.min(index * 0.05, 0.5)}s">
+                    <div class="package-header">
+                        <div class="package-info">
+                            <h3 class="package-name">${escapeHtml(pkg.name)}</h3>
+                            <div class="package-version">v${escapeHtml(pkg.version)}</div>
+                        </div>
+                        <div class="package-status ${pkg.installed ? 'status-installed' : 'status-available'}">
+                            <span class="status-indicator"></span>
+                            ${pkg.installed ? 'Installed' : 'Available'}
+                        </div>
+                    </div>
+                    <p class="package-description">${escapeHtml(pkg.description)}</p>
+                    <div class="package-meta">
+                        ${pkg.license ? `<span>📄 ${escapeHtml(pkg.license)}</span>` : ''}
+                        ${pkg.unfree ? '<span style="color: var(--sacred-gold);">⚠️ Unfree</span>' : ''}
+                        ${pkg.broken ? '<span style="color: var(--sacred-red);">⚠️ Broken</span>' : ''}
+                        <span>🏷️ ${escapeHtml(pkg.category || 'other')}</span>
+                    </div>
+                    <div class="package-actions">
+                        ${pkg.installed ? `
+                            <button class="btn btn-secondary" onclick="startUninstall('${escapeHtml(pkg.name)}')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                </svg>
+                                Remove
+                            </button>
+                        ` : `
+                            <button class="btn btn-primary" onclick="previewInstall('${escapeHtml(pkg.name)}')" ${pkg.broken ? 'disabled' : ''}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Install
+                            </button>
+                        `}
+                        <button class="btn btn-secondary" onclick="showPackageInfo('${escapeHtml(pkg.name)}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 16v-4"/>
+                                <path d="M12 8h.01"/>
+                            </svg>
+                            Info
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Add entrance animation
+            grid.querySelectorAll('.package-card').forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, Math.min(index * 50, 500));
+            });
+        }
+
+        // Preview installation
+        async function previewInstall(packageName) {
+            showProgress('Getting installation preview...', `Checking ${packageName}`);
+            
+            try {
+                const response = await fetch(`${API_URL}/packages/preview`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ packageName })
+                });
+                
+                const preview = await response.json();
+                hideProgress();
+                
+                if (preview.error) {
+                    alert(`Error: ${preview.error}\n${preview.suggestion || ''}`);
+                    return;
+                }
+                
+                // Show confirmation dialog
+                showInstallConfirmation(packageName, preview);
+            } catch (error) {
+                hideProgress();
+                alert('Failed to get installation preview. Please try again.');
+            }
+        }
+
+        // Show installation confirmation
+        function showInstallConfirmation(packageName, preview) {
+            const modal = document.getElementById('confirmModal');
+            const title = document.getElementById('confirmTitle');
+            const details = document.getElementById('confirmDetails');
+            const rollbackInfo = document.getElementById('rollbackInfo');
+            const rollbackCmd = document.getElementById('rollbackCommand');
+            
+            title.textContent = `Install ${packageName}?`;
+            
+            let detailsHtml = `<strong>This will install:</strong><br>`;
+            if (preview.changes.toInstall.length > 0) {
+                detailsHtml += preview.changes.toInstall.map(pkg => `• ${pkg}`).join('<br>');
+            }
+            if (preview.changes.toUpgrade.length > 0) {
+                detailsHtml += '<br><br><strong>Upgrades:</strong><br>';
+                detailsHtml += preview.changes.toUpgrade.map(u => `• ${u.from} → ${u.to}`).join('<br>');
+            }
+            if (preview.warning) {
+                detailsHtml += `<br><br><span style="color: var(--sacred-gold);">⚠️ ${preview.warning}</span>`;
+            }
+            
+            details.innerHTML = detailsHtml;
+            
+            if (preview.reversible) {
+                rollbackInfo.style.display = 'block';
+                rollbackCmd.textContent = preview.command || 'nix-env --rollback';
+            }
+            
+            // Store operation details
+            pendingOperation = {
+                type: 'install',
+                packageName: packageName
+            };
+            
+            // Reset confirmation
+            document.getElementById('confirmInput').value = '';
+            document.getElementById('confirmButton').disabled = true;
+            
+            modal.classList.add('active');
+        }
+
+        // Proceed with operation
+        async function proceedWithOperation() {
+            if (!pendingOperation) return;
+            
+            const modal = document.getElementById('confirmModal');
+            modal.classList.remove('active');
+            
+            if (pendingOperation.type === 'install') {
+                await performInstall(pendingOperation.packageName);
+            }
+            
+            pendingOperation = null;
+        }
+
+        // Perform installation
+        async function performInstall(packageName) {
+            showProgress('Installing Package', `Installing ${packageName}...`, true);
+            
+            try {
+                // Step 1: Create installation operation
+                updateProgress(20, 'Creating installation request...');
+                const createResponse = await fetch(`${API_URL}/packages/install`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ packageName })
+                });
+                
+                const operation = await createResponse.json();
+                
+                if (!operation.token) {
+                    throw new Error('Failed to create installation operation');
+                }
+                
+                // Step 2: Confirm installation
+                updateProgress(50, 'Confirming installation...');
+                const confirmResponse = await fetch(`${API_URL}/packages/confirm-install`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: operation.token,
+                        confirmation: 'CONFIRM'
+                    })
+                });
+                
+                const result = await confirmResponse.json();
+                
+                if (result.success) {
+                    updateProgress(100, 'Installation complete!');
+                    setTimeout(() => {
+                        hideProgress();
+                        showSuccessMessage(packageName, result);
+                        loadPackages(); // Refresh package list
+                    }, 1000);
+                } else {
+                    throw new Error(result.error || 'Installation failed');
+                }
+            } catch (error) {
+                hideProgress();
+                alert(`Installation failed: ${error.message}`);
+            }
+        }
+
+        // Show success message
+        function showSuccessMessage(packageName, result) {
+            alert(`✅ Successfully installed ${packageName}!\n\n` +
+                  `Generation: ${result.previousGeneration} → ${result.newGeneration}\n` +
+                  `Rollback: ${result.rollbackCommand}`);
+        }
+
+        // Progress modal functions
+        function showProgress(title, message, showBar = false) {
+            const modal = document.getElementById('progressModal');
+            document.getElementById('progressTitle').textContent = title;
+            document.getElementById('progressMessage').textContent = message;
+            
+            if (showBar) {
+                document.getElementById('progressBarFill').parentElement.style.display = 'block';
+            } else {
+                document.getElementById('progressBarFill').parentElement.style.display = 'none';
+            }
+            
+            modal.classList.add('active');
+        }
+
+        function updateProgress(percent, message) {
+            document.getElementById('progressBarFill').style.width = `${percent}%`;
+            if (message) {
+                document.getElementById('progressMessage').textContent = message;
+            }
+        }
+
+        function hideProgress() {
+            document.getElementById('progressModal').classList.remove('active');
+        }
+
+        // Cancel operation
+        function cancelOperation() {
+            document.getElementById('confirmModal').classList.remove('active');
+            pendingOperation = null;
+        }
+
+        // Check rollback info
+        async function checkRollbackInfo() {
+            try {
+                const response = await fetch(`${API_URL}/rollback/info`);
+                const info = await response.json();
+                console.log('Rollback info:', info);
+            } catch (error) {
+                console.error('Failed to get rollback info:', error);
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Search input
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                searchTerm = e.target.value;
+                
+                // Debounced search
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    loadPackages();
+                }, 300);
+            });
+
+            // Filter chips
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    currentFilter = chip.dataset.filter;
+                    loadPackages();
+                });
+            });
+
+            // Confirmation input
+            document.getElementById('confirmInput').addEventListener('input', (e) => {
+                const confirmButton = document.getElementById('confirmButton');
+                confirmButton.disabled = e.target.value !== 'CONFIRM';
+            });
+
+            // Periodic connection check
+            setInterval(checkConnection, 30000);
+        }
+
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showPackageInfo(packageName) {
+            alert(`Package: ${packageName}\n\nMore detailed information coming soon!`);
+        }
+
+        function startUninstall(packageName) {
+            alert(`Uninstall ${packageName}\n\nThis feature is coming soon!`);
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
