@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS Service Manager</title>
+    <style>
+        :root {
+            --sacred-purple: #8b5cf6;
+            --sacred-blue: #3b82f6;
+            --sacred-green: #10b981;
+            --sacred-gold: #f59e0b;
+            --sacred-red: #ef4444;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #475569;
+            --nix-blue: #5277C3;
+            --nix-light: #7EBAE4;
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .nix-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--nix-blue), var(--nix-light));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(82, 119, 195, 0.3);
+        }
+
+        /* Service Categories */
+        .service-categories {
+            background: var(--bg-secondary);
+            padding: 1.5rem 2rem;
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .category-chip {
+            padding: 0.625rem 1.25rem;
+            background: rgba(51, 65, 85, 0.5);
+            border: 1px solid transparent;
+            border-radius: 24px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: var(--transition);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .category-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .category-chip.active {
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
+            color: white;
+            border-color: transparent;
+        }
+
+        .category-count {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Service Grid */
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .service-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--sacred-purple), var(--sacred-blue));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .service-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .service-card:hover {
+            border-color: var(--sacred-purple);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .service-info {
+            flex: 1;
+        }
+
+        .service-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .service-description {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .service-toggle {
+            position: relative;
+            width: 56px;
+            height: 28px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid var(--border);
+        }
+
+        .service-toggle.active {
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
+            border-color: transparent;
+        }
+
+        .service-toggle-handle {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            transition: var(--transition);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .service-toggle.active .service-toggle-handle {
+            transform: translateX(28px);
+        }
+
+        .service-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            padding: 0.75rem;
+            background: rgba(51, 65, 85, 0.3);
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-running {
+            background: var(--sacred-green);
+        }
+
+        .status-stopped {
+            background: var(--text-secondary);
+        }
+
+        .status-error {
+            background: var(--sacred-red);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .service-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+        }
+
+        .btn-secondary {
+            background: rgba(51, 65, 85, 0.6);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--sacred-purple);
+            color: var(--sacred-purple);
+        }
+
+        /* Service Details Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .config-preview {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+
+        .log-viewer {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            max-height: 300px;
+            overflow: auto;
+            margin: 1rem 0;
+        }
+
+        .log-line {
+            margin: 0.25rem 0;
+            white-space: pre-wrap;
+        }
+
+        .log-error {
+            color: var(--sacred-red);
+        }
+
+        .log-warning {
+            color: var(--sacred-gold);
+        }
+
+        .log-info {
+            color: var(--text-secondary);
+        }
+
+        /* Search Bar */
+        .search-bar {
+            background: rgba(30, 41, 59, 0.6);
+            padding: 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--sacred-purple);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--sacred-purple);
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .service-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .service-categories {
+                padding: 1rem;
+            }
+            
+            .modal {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="nix-logo">🛠️</div>
+            <span>NixOS Service Manager</span>
+        </div>
+        <button class="btn btn-secondary" onclick="refreshServices()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Refresh
+        </button>
+    </header>
+
+    <div class="service-categories">
+        <div class="category-chip active" data-category="all" onclick="filterCategory('all')">
+            <span>All Services</span>
+            <span class="category-count" id="count-all">0</span>
+        </div>
+        <div class="category-chip" data-category="system" onclick="filterCategory('system')">
+            <span>System</span>
+            <span class="category-count" id="count-system">0</span>
+        </div>
+        <div class="category-chip" data-category="network" onclick="filterCategory('network')">
+            <span>Network</span>
+            <span class="category-count" id="count-network">0</span>
+        </div>
+        <div class="category-chip" data-category="desktop" onclick="filterCategory('desktop')">
+            <span>Desktop</span>
+            <span class="category-count" id="count-desktop">0</span>
+        </div>
+        <div class="category-chip" data-category="development" onclick="filterCategory('development')">
+            <span>Development</span>
+            <span class="category-count" id="count-development">0</span>
+        </div>
+        <div class="category-chip" data-category="security" onclick="filterCategory('security')">
+            <span>Security</span>
+            <span class="category-count" id="count-security">0</span>
+        </div>
+    </div>
+
+    <main class="main-content">
+        <div class="search-bar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input 
+                type="text" 
+                class="search-input" 
+                placeholder="Search services..."
+                id="searchInput"
+                onkeyup="searchServices()"
+            >
+        </div>
+
+        <div class="service-grid" id="serviceGrid">
+            <!-- Services will be dynamically loaded here -->
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading services...</p>
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <div class="empty-icon">🔍</div>
+            <h3>No services found</h3>
+            <p>Try adjusting your search or filters</p>
+        </div>
+    </main>
+
+    <!-- Service Details Modal -->
+    <div class="modal" id="serviceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalServiceName">Service Details</h2>
+                <button class="btn btn-icon btn-secondary" onclick="closeModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Service details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Service data
+        let services = [];
+        let currentCategory = 'all';
+
+        // Demo services data
+        const demoServices = [
+            {
+                name: 'nginx',
+                displayName: 'NGINX Web Server',
+                description: 'High-performance HTTP server and reverse proxy',
+                category: 'network',
+                enabled: true,
+                running: true,
+                config: 'services.nginx.enable = true;'
+            },
+            {
+                name: 'networkmanager',
+                displayName: 'NetworkManager',
+                description: 'Network configuration and connection management',
+                category: 'network',
+                enabled: true,
+                running: true,
+                config: 'networking.networkmanager.enable = true;'
+            },
+            {
+                name: 'sshd',
+                displayName: 'OpenSSH Server',
+                description: 'Secure shell server for remote access',
+                category: 'network',
+                enabled: false,
+                running: false,
+                config: 'services.openssh.enable = true;'
+            },
+            {
+                name: 'xserver',
+                displayName: 'X11 Display Server',
+                description: 'Graphical display server',
+                category: 'desktop',
+                enabled: true,
+                running: true,
+                config: 'services.xserver.enable = true;'
+            },
+            {
+                name: 'pulseaudio',
+                displayName: 'PulseAudio',
+                description: 'Sound server for Linux systems',
+                category: 'desktop',
+                enabled: true,
+                running: true,
+                config: 'hardware.pulseaudio.enable = true;'
+            },
+            {
+                name: 'docker',
+                displayName: 'Docker',
+                description: 'Container virtualization platform',
+                category: 'development',
+                enabled: false,
+                running: false,
+                config: 'virtualisation.docker.enable = true;'
+            },
+            {
+                name: 'postgresql',
+                displayName: 'PostgreSQL',
+                description: 'Advanced open source database',
+                category: 'development',
+                enabled: false,
+                running: false,
+                config: 'services.postgresql.enable = true;'
+            },
+            {
+                name: 'firewall',
+                displayName: 'NixOS Firewall',
+                description: 'System firewall based on iptables',
+                category: 'security',
+                enabled: true,
+                running: true,
+                config: 'networking.firewall.enable = true;'
+            },
+            {
+                name: 'printing',
+                displayName: 'CUPS Printing',
+                description: 'Print server and printer drivers',
+                category: 'system',
+                enabled: true,
+                running: true,
+                config: 'services.printing.enable = true;'
+            },
+            {
+                name: 'bluetooth',
+                displayName: 'Bluetooth',
+                description: 'Bluetooth device management',
+                category: 'system',
+                enabled: false,
+                running: false,
+                config: 'hardware.bluetooth.enable = true;'
+            }
+        ];
+
+        // Initialize
+        async function init() {
+            await loadServices();
+            updateCategoryCounts();
+        }
+
+        // Load services
+        async function loadServices() {
+            const loading = document.getElementById('loading');
+            const grid = document.getElementById('serviceGrid');
+            
+            loading.style.display = 'block';
+            grid.style.display = 'none';
+
+            try {
+                // Try to load from API
+                const response = await fetch('/api/services');
+                if (response.ok) {
+                    services = await response.json();
+                } else {
+                    throw new Error('API not available');
+                }
+            } catch (error) {
+                // Use demo data
+                services = demoServices;
+            }
+
+            renderServices();
+            loading.style.display = 'none';
+            grid.style.display = 'grid';
+        }
+
+        // Render services
+        function renderServices() {
+            const grid = document.getElementById('serviceGrid');
+            const empty = document.getElementById('emptyState');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            let filtered = services;
+            
+            // Filter by category
+            if (currentCategory !== 'all') {
+                filtered = filtered.filter(s => s.category === currentCategory);
+            }
+            
+            // Filter by search
+            if (searchTerm) {
+                filtered = filtered.filter(s => 
+                    s.name.toLowerCase().includes(searchTerm) ||
+                    s.displayName.toLowerCase().includes(searchTerm) ||
+                    s.description.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (filtered.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.style.display = 'grid';
+            
+            grid.innerHTML = filtered.map(service => `
+                <div class="service-card">
+                    <div class="service-header">
+                        <div class="service-info">
+                            <h3 class="service-name">
+                                ${service.displayName}
+                                ${service.enabled ? '<span style="color: var(--sacred-green); font-size: 0.75rem;">●</span>' : ''}
+                            </h3>
+                            <p class="service-description">${service.description}</p>
+                        </div>
+                        <div class="service-toggle ${service.enabled ? 'active' : ''}" 
+                             onclick="toggleService('${service.name}', ${!service.enabled})">
+                            <div class="service-toggle-handle"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="service-status">
+                        <span class="status-dot ${service.running ? 'status-running' : 'status-stopped'}"></span>
+                        <span>${service.running ? 'Running' : 'Stopped'}</span>
+                        ${service.enabled && !service.running ? '<span style="color: var(--sacred-gold);">(will start on reboot)</span>' : ''}
+                    </div>
+                    
+                    <div class="service-actions">
+                        <button class="btn btn-secondary btn-icon" onclick="showServiceDetails('${service.name}')" title="Details">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="16" x2="12" y2="12"/>
+                                <line x1="12" y1="8" x2="12.01" y2="8"/>
+                            </svg>
+                        </button>
+                        ${service.running ? `
+                            <button class="btn btn-secondary btn-icon" onclick="restartService('${service.name}')" title="Restart">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="23 4 23 10 17 10"/>
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                                </svg>
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-secondary btn-icon" onclick="showLogs('${service.name}')" title="Logs">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Toggle service
+        async function toggleService(serviceName, enable) {
+            const service = services.find(s => s.name === serviceName);
+            if (!service) return;
+
+            const action = enable ? 'enable' : 'disable';
+            const message = `${action.charAt(0).toUpperCase() + action.slice(1)} ${service.displayName}?
+
+This will modify your configuration.nix:
+${enable ? `+ ${service.config}` : `- ${service.config}`}
+
+You'll need to rebuild for changes to take effect.`;
+
+            if (!confirm(message)) return;
+
+            try {
+                // In real implementation, this would call the API
+                const response = await fetch('/api/services/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ service: serviceName, enable })
+                });
+
+                if (!response.ok) throw new Error('Failed to toggle service');
+
+                // Update local state
+                service.enabled = enable;
+                if (!enable) service.running = false;
+                
+                renderServices();
+                alert(`${service.displayName} has been ${enable ? 'enabled' : 'disabled'}. Run 'nixos-rebuild switch' to apply.`);
+            } catch (error) {
+                // Demo mode
+                service.enabled = enable;
+                if (!enable) service.running = false;
+                renderServices();
+                alert(`Demo: ${service.displayName} would be ${enable ? 'enabled' : 'disabled'}`);
+            }
+        }
+
+        // Show service details
+        function showServiceDetails(serviceName) {
+            const service = services.find(s => s.name === serviceName);
+            if (!service) return;
+
+            document.getElementById('modalServiceName').textContent = service.displayName;
+            document.getElementById('modalBody').innerHTML = `
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="margin-bottom: 0.5rem;">Service Information</h3>
+                    <p style="color: var(--text-secondary);">${service.description}</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div>
+                        <strong>Status:</strong> ${service.running ? 
+                            '<span style="color: var(--sacred-green);">Running</span>' : 
+                            '<span style="color: var(--text-secondary);">Stopped</span>'}
+                    </div>
+                    <div>
+                        <strong>Enabled:</strong> ${service.enabled ? 
+                            '<span style="color: var(--sacred-green);">Yes</span>' : 
+                            '<span style="color: var(--text-secondary);">No</span>'}
+                    </div>
+                    <div>
+                        <strong>Category:</strong> ${service.category}
+                    </div>
+                    <div>
+                        <strong>Service Name:</strong> ${service.name}
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 0.5rem;">Configuration</h3>
+                <div class="config-preview">
+                    ${service.config}
+                </div>
+
+                <h3 style="margin-bottom: 0.5rem;">Additional Options</h3>
+                <div class="config-preview">
+                    # Example additional configuration
+                    services.${service.name} = {
+                      enable = true;
+                      # Add service-specific options here
+                    };
+                </div>
+            `;
+
+            document.getElementById('serviceModal').classList.add('active');
+        }
+
+        // Show logs
+        async function showLogs(serviceName) {
+            const service = services.find(s => s.name === serviceName);
+            if (!service) return;
+
+            document.getElementById('modalServiceName').textContent = `${service.displayName} Logs`;
+            
+            // Demo log content
+            const logs = `
+2024-01-15 10:23:45 [INFO] Service ${service.name} started successfully
+2024-01-15 10:23:46 [INFO] Listening on port 8080
+2024-01-15 10:24:12 [INFO] Accepted connection from 192.168.1.100
+2024-01-15 10:24:13 [INFO] Request processed in 23ms
+2024-01-15 10:25:01 [WARN] High memory usage detected (85%)
+2024-01-15 10:25:45 [INFO] Automatic cleanup completed
+2024-01-15 10:26:30 [ERROR] Failed to connect to database: timeout
+2024-01-15 10:26:31 [INFO] Retrying connection...
+2024-01-15 10:26:33 [INFO] Database connection restored
+            `.trim();
+
+            document.getElementById('modalBody').innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <button class="btn btn-secondary" onclick="refreshLogs('${serviceName}')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"/>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+                <div class="log-viewer">
+                    ${logs.split('\n').map(line => {
+                        let className = 'log-line';
+                        if (line.includes('[ERROR]')) className += ' log-error';
+                        else if (line.includes('[WARN]')) className += ' log-warning';
+                        else if (line.includes('[INFO]')) className += ' log-info';
+                        return `<div class="${className}">${line}</div>`;
+                    }).join('')}
+                </div>
+            `;
+
+            document.getElementById('serviceModal').classList.add('active');
+        }
+
+        // Filter by category
+        function filterCategory(category) {
+            currentCategory = category;
+            
+            // Update active state
+            document.querySelectorAll('.category-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.category === category);
+            });
+            
+            renderServices();
+        }
+
+        // Search services
+        function searchServices() {
+            renderServices();
+        }
+
+        // Update category counts
+        function updateCategoryCounts() {
+            const counts = {
+                all: services.length,
+                system: services.filter(s => s.category === 'system').length,
+                network: services.filter(s => s.category === 'network').length,
+                desktop: services.filter(s => s.category === 'desktop').length,
+                development: services.filter(s => s.category === 'development').length,
+                security: services.filter(s => s.category === 'security').length
+            };
+
+            Object.entries(counts).forEach(([category, count]) => {
+                const element = document.getElementById(`count-${category}`);
+                if (element) element.textContent = count;
+            });
+        }
+
+        // Refresh services
+        async function refreshServices() {
+            await loadServices();
+            updateCategoryCounts();
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('serviceModal').classList.remove('active');
+        }
+
+        // Modal backdrop click
+        document.getElementById('serviceModal').addEventListener('click', (e) => {
+            if (e.target.id === 'serviceModal') {
+                closeModal();
+            }
+        });
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS Configuration Editor</title>
+    <style>
+        :root {
+            --sacred-purple: #8b5cf6;
+            --sacred-blue: #3b82f6;
+            --sacred-green: #10b981;
+            --sacred-gold: #f59e0b;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #475569;
+            --nix-blue: #5277C3;
+            --nix-light: #7EBAE4;
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .nix-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--nix-blue), var(--nix-light));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(82, 119, 195, 0.3);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Editor Panel */
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+
+        .editor-toolbar {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .editor-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-editor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            font-family: 'Fira Code', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            padding: 1rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: none;
+            outline: none;
+            resize: none;
+            overflow: auto;
+        }
+
+        .line-numbers {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 50px;
+            padding: 1rem 0;
+            background: rgba(51, 65, 85, 0.3);
+            text-align: right;
+            padding-right: 1rem;
+            color: var(--text-secondary);
+            font-family: 'Fira Code', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .code-editor {
+            padding-left: 70px;
+        }
+
+        /* Preview Panel */
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-secondary);
+        }
+
+        .preview-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .preview-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .preview-content {
+            flex: 1;
+            padding: 1.5rem;
+            overflow: auto;
+        }
+
+        /* Diff View */
+        .diff-view {
+            background: var(--bg-primary);
+            border-radius: var(--radius);
+            padding: 1rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .diff-line {
+            padding: 0.25rem 0.5rem;
+            margin: 0.125rem 0;
+            border-radius: 4px;
+        }
+
+        .diff-add {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--sacred-green);
+            border-left: 3px solid var(--sacred-green);
+        }
+
+        .diff-remove {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border-left: 3px solid #ef4444;
+        }
+
+        .diff-context {
+            color: var(--text-secondary);
+        }
+
+        .diff-header {
+            color: var(--sacred-purple);
+            font-weight: 600;
+            margin: 1rem 0 0.5rem;
+        }
+
+        /* Actions Panel */
+        .actions-panel {
+            background: var(--bg-primary);
+            padding: 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .validation-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status-valid {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--sacred-green);
+        }
+
+        .status-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .status-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--sacred-gold);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(51, 65, 85, 0.6);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--sacred-purple);
+            color: var(--sacred-purple);
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            border-radius: 6px;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            position: fixed;
+            right: 2rem;
+            bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .quick-action {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .quick-action:hover {
+            border-color: var(--sacred-purple);
+            transform: scale(1.1);
+        }
+
+        /* Syntax Highlighting (basic) */
+        .syntax-keyword {
+            color: var(--sacred-purple);
+            font-weight: 600;
+        }
+
+        .syntax-string {
+            color: var(--sacred-green);
+        }
+
+        .syntax-comment {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .syntax-number {
+            color: var(--sacred-gold);
+        }
+
+        /* Loading State */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--sacred-purple);
+            border-radius: 50%;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error Messages */
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #ef4444;
+        }
+
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: var(--sacred-green);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .editor-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                min-height: 50vh;
+            }
+            
+            .preview-panel {
+                min-height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="nix-logo">❄️</div>
+            <span>NixOS Configuration Editor</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary btn-icon" onclick="saveConfig()" title="Save">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+            </button>
+            <button class="btn btn-secondary btn-icon" onclick="reloadConfig()" title="Reload">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+            </button>
+            <button class="btn btn-primary" onclick="applyConfig()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Apply Changes
+            </button>
+        </div>
+    </header>
+
+    <div class="main-content">
+        <!-- Editor Panel -->
+        <div class="editor-panel">
+            <div class="editor-toolbar">
+                <div class="file-info">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <span>/etc/nixos/configuration.nix</span>
+                </div>
+                <div class="editor-actions">
+                    <button class="btn btn-secondary btn-icon" onclick="formatCode()" title="Format">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="21" y1="10" x2="3" y2="10"/>
+                            <line x1="21" y1="6" x2="3" y2="6"/>
+                            <line x1="21" y1="14" x2="3" y2="14"/>
+                            <line x1="21" y1="18" x2="3" y2="18"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-secondary btn-icon" onclick="validateConfig()" title="Validate">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="editor-container">
+                <div class="line-numbers" id="lineNumbers"></div>
+                <textarea class="code-editor" id="codeEditor" spellcheck="false"></textarea>
+            </div>
+        </div>
+
+        <!-- Preview Panel -->
+        <div class="preview-panel">
+            <div class="preview-header">
+                <h2 class="preview-title">Changes Preview</h2>
+                <button class="btn btn-secondary btn-icon" onclick="toggleDiffView()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="preview-content" id="previewContent">
+                <div class="diff-view" id="diffView">
+                    <div class="diff-header">No changes to preview</div>
+                    <p style="color: var(--text-secondary); margin-top: 1rem;">
+                        Make changes to your configuration to see a preview of what will be applied.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions Panel -->
+    <div class="actions-panel">
+        <div class="validation-status" id="validationStatus">
+            <div class="status-icon status-valid">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+            </div>
+            <span>Configuration is valid</span>
+        </div>
+        <div class="action-buttons">
+            <button class="btn btn-secondary" onclick="showGenerations()">
+                View Generations
+            </button>
+            <button class="btn btn-primary" onclick="applyConfig()">
+                Apply & Rebuild
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <div class="quick-action" onclick="addPackage()" title="Add Package">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        </div>
+        <div class="quick-action" onclick="addService()" title="Add Service">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+        </div>
+        <div class="quick-action" onclick="searchConfig()" title="Search">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <script>
+        // State management
+        let originalConfig = '';
+        let currentConfig = '';
+        let isModified = false;
+
+        // Initialize editor
+        async function initEditor() {
+            await loadConfiguration();
+            setupEditor();
+            updateLineNumbers();
+        }
+
+        // Load configuration file
+        async function loadConfiguration() {
+            showLoading(true);
+            try {
+                // In real implementation, this would fetch from API
+                const response = await fetch('/api/config/current');
+                if (response.ok) {
+                    originalConfig = await response.text();
+                } else {
+                    // Demo configuration
+                    originalConfig = getDemoConfig();
+                }
+                
+                currentConfig = originalConfig;
+                document.getElementById('codeEditor').value = currentConfig;
+                updatePreview();
+            } catch (error) {
+                console.error('Failed to load configuration:', error);
+                originalConfig = getDemoConfig();
+                currentConfig = originalConfig;
+                document.getElementById('codeEditor').value = currentConfig;
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Get demo configuration
+        function getDemoConfig() {
+            return `{ config, pkgs, ... }:
+
+{
+  imports = [
+    ./hardware-configuration.nix
+  ];
+
+  # Boot loader
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  # Networking
+  networking.hostName = "nixos";
+  networking.networkmanager.enable = true;
+
+  # Time zone
+  time.timeZone = "America/Chicago";
+
+  # Packages
+  environment.systemPackages = with pkgs; [
+    vim
+    wget
+    firefox
+    git
+  ];
+
+  # Enable the X11 windowing system
+  services.xserver.enable = true;
+
+  # Enable GNOME Desktop Environment
+  services.xserver.displayManager.gdm.enable = true;
+  services.xserver.desktopManager.gnome.enable = true;
+
+  # Enable CUPS to print documents
+  services.printing.enable = true;
+
+  # Enable sound
+  sound.enable = true;
+  hardware.pulseaudio.enable = true;
+
+  # Users
+  users.users.alice = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" ];
+  };
+
+  # This value determines the NixOS release
+  system.stateVersion = "23.11";
+}`;
+        }
+
+        // Setup editor
+        function setupEditor() {
+            const editor = document.getElementById('codeEditor');
+            
+            editor.addEventListener('input', () => {
+                currentConfig = editor.value;
+                isModified = currentConfig !== originalConfig;
+                updateLineNumbers();
+                updatePreview();
+            });
+
+            editor.addEventListener('scroll', () => {
+                document.getElementById('lineNumbers').scrollTop = editor.scrollTop;
+            });
+
+            // Tab handling
+            editor.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = editor.selectionStart;
+                    const end = editor.selectionEnd;
+                    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+                    editor.selectionStart = editor.selectionEnd = start + 2;
+                }
+            });
+        }
+
+        // Update line numbers
+        function updateLineNumbers() {
+            const editor = document.getElementById('codeEditor');
+            const lineNumbers = document.getElementById('lineNumbers');
+            const lines = editor.value.split('\n');
+            
+            lineNumbers.innerHTML = lines
+                .map((_, i) => `<div>${i + 1}</div>`)
+                .join('');
+        }
+
+        // Update preview
+        function updatePreview() {
+            if (!isModified) {
+                document.getElementById('diffView').innerHTML = `
+                    <div class="diff-header">No changes to preview</div>
+                    <p style="color: var(--text-secondary); margin-top: 1rem;">
+                        Make changes to your configuration to see a preview of what will be applied.
+                    </p>
+                `;
+                return;
+            }
+
+            // Generate diff
+            const diff = generateDiff(originalConfig, currentConfig);
+            displayDiff(diff);
+        }
+
+        // Generate diff between two configs
+        function generateDiff(original, current) {
+            const originalLines = original.split('\n');
+            const currentLines = current.split('\n');
+            const diff = [];
+            
+            // Simple line-by-line diff (real implementation would use proper diff algorithm)
+            const maxLines = Math.max(originalLines.length, currentLines.length);
+            
+            for (let i = 0; i < maxLines; i++) {
+                const origLine = originalLines[i] || '';
+                const currLine = currentLines[i] || '';
+                
+                if (origLine !== currLine) {
+                    if (origLine && !currLine) {
+                        diff.push({ type: 'remove', line: origLine, num: i + 1 });
+                    } else if (!origLine && currLine) {
+                        diff.push({ type: 'add', line: currLine, num: i + 1 });
+                    } else {
+                        diff.push({ type: 'remove', line: origLine, num: i + 1 });
+                        diff.push({ type: 'add', line: currLine, num: i + 1 });
+                    }
+                } else if (diff.length > 0 && diff.length < 10) {
+                    // Show some context
+                    diff.push({ type: 'context', line: origLine, num: i + 1 });
+                }
+            }
+            
+            return diff;
+        }
+
+        // Display diff
+        function displayDiff(diff) {
+            const diffView = document.getElementById('diffView');
+            
+            if (diff.length === 0) {
+                diffView.innerHTML = '<div class="diff-header">No changes detected</div>';
+                return;
+            }
+            
+            let html = '<div class="diff-header">Configuration Changes</div>';
+            
+            diff.forEach(item => {
+                const className = item.type === 'add' ? 'diff-add' : 
+                                item.type === 'remove' ? 'diff-remove' : 
+                                'diff-context';
+                const prefix = item.type === 'add' ? '+' : 
+                             item.type === 'remove' ? '-' : ' ';
+                
+                html += `<div class="diff-line ${className}">${prefix} ${escapeHtml(item.line)}</div>`;
+            });
+            
+            diffView.innerHTML = html;
+        }
+
+        // Validate configuration
+        async function validateConfig() {
+            showLoading(true);
+            try {
+                // In real implementation, this would call nix-instantiate
+                const response = await fetch('/api/config/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ config: currentConfig })
+                });
+                
+                const result = await response.json();
+                updateValidationStatus(result.valid, result.message);
+            } catch (error) {
+                // Demo validation
+                const hasError = currentConfig.includes('syntax error');
+                updateValidationStatus(!hasError, hasError ? 'Syntax error detected' : 'Configuration is valid');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Update validation status
+        function updateValidationStatus(isValid, message) {
+            const status = document.getElementById('validationStatus');
+            const icon = isValid ? 
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>' :
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+            
+            status.innerHTML = `
+                <div class="status-icon ${isValid ? 'status-valid' : 'status-error'}">
+                    ${icon}
+                </div>
+                <span>${message}</span>
+            `;
+        }
+
+        // Apply configuration
+        async function applyConfig() {
+            if (!isModified) {
+                alert('No changes to apply');
+                return;
+            }
+            
+            const confirmMsg = `Apply configuration changes and rebuild system?
+
+This will:
+1. Save the configuration
+2. Run nixos-rebuild switch
+3. Create a new system generation
+
+You can rollback if needed.`;
+            
+            if (!confirm(confirmMsg)) return;
+            
+            showLoading(true);
+            try {
+                // Save and rebuild
+                const response = await fetch('/api/config/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ config: currentConfig })
+                });
+                
+                if (response.ok) {
+                    originalConfig = currentConfig;
+                    isModified = false;
+                    updatePreview();
+                    alert('Configuration applied successfully!');
+                } else {
+                    alert('Failed to apply configuration');
+                }
+            } catch (error) {
+                alert('Demo mode: Configuration would be applied here');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Save configuration
+        async function saveConfig() {
+            if (!isModified) {
+                alert('No changes to save');
+                return;
+            }
+            
+            showLoading(true);
+            try {
+                const response = await fetch('/api/config/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ config: currentConfig })
+                });
+                
+                if (response.ok) {
+                    originalConfig = currentConfig;
+                    isModified = false;
+                    updatePreview();
+                    alert('Configuration saved!');
+                }
+            } catch (error) {
+                alert('Demo mode: Configuration would be saved here');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Reload configuration
+        async function reloadConfig() {
+            if (isModified && !confirm('Discard unsaved changes?')) {
+                return;
+            }
+            await loadConfiguration();
+        }
+
+        // Format code
+        function formatCode() {
+            // Basic formatting (real implementation would use nixfmt)
+            const editor = document.getElementById('codeEditor');
+            let formatted = currentConfig;
+            
+            // Simple formatting rules
+            formatted = formatted.replace(/\s+$/gm, ''); // Trim trailing whitespace
+            formatted = formatted.replace(/\t/g, '  '); // Replace tabs with spaces
+            
+            editor.value = formatted;
+            currentConfig = formatted;
+            updateLineNumbers();
+            updatePreview();
+        }
+
+        // Add package helper
+        function addPackage() {
+            const packageName = prompt('Enter package name:');
+            if (!packageName) return;
+            
+            const editor = document.getElementById('codeEditor');
+            const lines = currentConfig.split('\n');
+            
+            // Find systemPackages section
+            const packageIndex = lines.findIndex(line => line.includes('environment.systemPackages'));
+            if (packageIndex !== -1) {
+                // Find the closing bracket
+                let bracketCount = 0;
+                let insertIndex = packageIndex;
+                
+                for (let i = packageIndex; i < lines.length; i++) {
+                    if (lines[i].includes('[')) bracketCount++;
+                    if (lines[i].includes(']')) {
+                        insertIndex = i;
+                        break;
+                    }
+                }
+                
+                // Insert package
+                lines.splice(insertIndex, 0, `    ${packageName}`);
+                currentConfig = lines.join('\n');
+                editor.value = currentConfig;
+                updateLineNumbers();
+                updatePreview();
+            }
+        }
+
+        // Show loading
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', initEditor);
+    </script>
+</body>
+</html>

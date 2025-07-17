@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS Generation Manager</title>
+    <style>
+        :root {
+            --sacred-purple: #8b5cf6;
+            --sacred-blue: #3b82f6;
+            --sacred-green: #10b981;
+            --sacred-gold: #f59e0b;
+            --sacred-red: #ef4444;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #475569;
+            --nix-blue: #5277C3;
+            --nix-light: #7EBAE4;
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .nix-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--nix-blue), var(--nix-light));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(82, 119, 195, 0.3);
+        }
+
+        /* Info Bar */
+        .info-bar {
+            background: var(--bg-secondary);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .info-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: var(--sacred-green);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Timeline View */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+
+        /* Generation Card */
+        .generation-card {
+            position: relative;
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            margin-left: 2rem;
+            transition: var(--transition);
+        }
+
+        .generation-card::before {
+            content: '';
+            position: absolute;
+            left: -2.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border);
+            border-radius: 50%;
+        }
+
+        .generation-card.current::before {
+            background: var(--sacred-green);
+            border-color: var(--sacred-green);
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+        }
+
+        .generation-card:hover {
+            border-color: var(--sacred-purple);
+            transform: translateX(4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .generation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .generation-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .current-badge {
+            background: var(--sacred-green);
+            color: white;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 16px;
+            font-weight: 600;
+        }
+
+        .generation-date {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .generation-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .info-box {
+            background: rgba(51, 65, 85, 0.3);
+            padding: 0.75rem;
+            border-radius: 8px;
+        }
+
+        .info-box-label {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .info-box-value {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .generation-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--sacred-purple), var(--sacred-blue));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(51, 65, 85, 0.6);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--sacred-purple);
+            color: var(--sacred-purple);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--sacred-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: var(--sacred-red);
+        }
+
+        /* Diff Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .diff-viewer {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        .diff-header {
+            color: var(--sacred-purple);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .diff-line {
+            margin: 0.125rem 0;
+        }
+
+        .diff-add {
+            color: var(--sacred-green);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .diff-remove {
+            color: var(--sacred-red);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Warning Message */
+        .warning-message {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: start;
+            gap: 0.75rem;
+        }
+
+        .warning-icon {
+            color: var(--sacred-gold);
+            flex-shrink: 0;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--sacred-purple);
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .info-bar {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: start;
+            }
+            
+            .generation-card {
+                margin-left: 1rem;
+            }
+            
+            .generation-info {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="nix-logo">🔄</div>
+            <span>NixOS Generation Manager</span>
+        </div>
+        <button class="btn btn-secondary" onclick="refreshGenerations()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Refresh
+        </button>
+    </header>
+
+    <div class="info-bar">
+        <div class="info-item">
+            <span class="info-label">Current Generation:</span>
+            <span class="info-value" id="currentGen">#142</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Total Generations:</span>
+            <span class="info-value" id="totalGens">8</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">System Profile:</span>
+            <span class="info-value">/nix/var/nix/profiles/system</span>
+        </div>
+    </div>
+
+    <main class="main-content">
+        <div class="warning-message">
+            <svg class="warning-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div>
+                <strong>Important:</strong> Switching generations will immediately change your system configuration. 
+                Make sure to save any work before proceeding. You can always switch back if needed.
+            </div>
+        </div>
+
+        <div class="timeline" id="timeline">
+            <!-- Generations will be loaded here -->
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading generations...</p>
+        </div>
+    </main>
+
+    <!-- Diff Modal -->
+    <div class="modal" id="diffModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="diffTitle">Generation Differences</h2>
+                <button class="btn btn-secondary" onclick="closeModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="diffContent">
+                <!-- Diff content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Generation data
+        let generations = [];
+        let currentGeneration = 142;
+
+        // Demo generations
+        const demoGenerations = [
+            {
+                number: 142,
+                date: '2024-01-15 14:32:45',
+                current: true,
+                kernel: '6.15.6',
+                nixosVersion: '25.11',
+                configChanges: 'Added firefox, Updated kernel',
+                packages: 1247,
+                size: '4.2 GB'
+            },
+            {
+                number: 141,
+                date: '2024-01-15 09:15:23',
+                current: false,
+                kernel: '6.15.5',
+                nixosVersion: '25.11',
+                configChanges: 'Enabled Docker service',
+                packages: 1246,
+                size: '4.1 GB'
+            },
+            {
+                number: 140,
+                date: '2024-01-14 16:45:12',
+                current: false,
+                kernel: '6.15.5',
+                nixosVersion: '25.11',
+                configChanges: 'System update, Added development tools',
+                packages: 1240,
+                size: '4.0 GB'
+            },
+            {
+                number: 139,
+                date: '2024-01-13 11:23:34',
+                current: false,
+                kernel: '6.15.4',
+                nixosVersion: '25.11',
+                configChanges: 'Removed unused packages',
+                packages: 1180,
+                size: '3.8 GB'
+            },
+            {
+                number: 138,
+                date: '2024-01-12 08:45:56',
+                current: false,
+                kernel: '6.15.4',
+                nixosVersion: '25.11',
+                configChanges: 'Initial NixOS installation',
+                packages: 1150,
+                size: '3.7 GB'
+            }
+        ];
+
+        // Initialize
+        async function init() {
+            await loadGenerations();
+        }
+
+        // Load generations
+        async function loadGenerations() {
+            const loading = document.getElementById('loading');
+            const timeline = document.getElementById('timeline');
+            
+            loading.style.display = 'block';
+            timeline.style.display = 'none';
+
+            try {
+                // Try to load from API
+                const response = await fetch('/api/generations');
+                if (response.ok) {
+                    generations = await response.json();
+                } else {
+                    throw new Error('API not available');
+                }
+            } catch (error) {
+                // Use demo data
+                generations = demoGenerations;
+            }
+
+            renderGenerations();
+            updateInfo();
+            
+            loading.style.display = 'none';
+            timeline.style.display = 'block';
+        }
+
+        // Render generations
+        function renderGenerations() {
+            const timeline = document.getElementById('timeline');
+            
+            timeline.innerHTML = generations.map(gen => `
+                <div class="generation-card ${gen.current ? 'current' : ''}">
+                    <div class="generation-header">
+                        <div>
+                            <div class="generation-number">
+                                Generation #${gen.number}
+                                ${gen.current ? '<span class="current-badge">CURRENT</span>' : ''}
+                            </div>
+                            <div class="generation-date">${formatDate(gen.date)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="generation-info">
+                        <div class="info-box">
+                            <div class="info-box-label">Kernel Version</div>
+                            <div class="info-box-value">${gen.kernel}</div>
+                        </div>
+                        <div class="info-box">
+                            <div class="info-box-label">NixOS Version</div>
+                            <div class="info-box-value">${gen.nixosVersion}</div>
+                        </div>
+                        <div class="info-box">
+                            <div class="info-box-label">Packages</div>
+                            <div class="info-box-value">${gen.packages}</div>
+                        </div>
+                        <div class="info-box">
+                            <div class="info-box-label">Size</div>
+                            <div class="info-box-value">${gen.size}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <strong>Changes:</strong> ${gen.configChanges}
+                    </div>
+                    
+                    <div class="generation-actions">
+                        ${!gen.current ? `
+                            <button class="btn btn-primary" onclick="switchToGeneration(${gen.number})">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 15 12 18 9"/>
+                                    <polyline points="12 15 12 3"/>
+                                </svg>
+                                Switch to This
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-secondary" onclick="showDiff(${gen.number})">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            View Changes
+                        </button>
+                        ${!gen.current && gen.number < currentGeneration - 2 ? `
+                            <button class="btn btn-danger" onclick="deleteGeneration(${gen.number})">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                </svg>
+                                Delete
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update info bar
+        function updateInfo() {
+            document.getElementById('currentGen').textContent = `#${currentGeneration}`;
+            document.getElementById('totalGens').textContent = generations.length;
+        }
+
+        // Switch to generation
+        async function switchToGeneration(genNumber) {
+            const gen = generations.find(g => g.number === genNumber);
+            if (!gen) return;
+
+            const confirmMsg = `Switch to Generation #${genNumber}?
+
+Date: ${formatDate(gen.date)}
+Changes: ${gen.configChanges}
+
+Your system will be immediately reconfigured to this generation.
+You can switch back to the current generation if needed.`;
+
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                // In real implementation, this would call the API
+                const response = await fetch('/api/generations/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ generation: genNumber })
+                });
+
+                if (!response.ok) throw new Error('Failed to switch generation');
+
+                alert(`Switched to Generation #${genNumber} successfully!`);
+                
+                // Update UI
+                generations.forEach(g => g.current = g.number === genNumber);
+                currentGeneration = genNumber;
+                renderGenerations();
+                updateInfo();
+            } catch (error) {
+                // Demo mode
+                alert(`Demo: Would switch to Generation #${genNumber}\n\nCommand: sudo nix-env --switch-generation ${genNumber}`);
+            }
+        }
+
+        // Show diff
+        async function showDiff(genNumber) {
+            const gen = generations.find(g => g.number === genNumber);
+            if (!gen) return;
+
+            document.getElementById('diffTitle').textContent = `Generation #${genNumber} Changes`;
+            
+            // Demo diff content
+            const diffContent = `
+<div class="diff-viewer">
+    <div class="diff-header">Configuration Changes</div>
+    ${gen.current ? '<p>This is the current generation.</p>' : ''}
+    
+    <div class="diff-header" style="margin-top: 1rem;">Package Changes</div>
+    ${genNumber === 142 ? `
+        <div class="diff-line diff-add">+ firefox</div>
+        <div class="diff-line diff-add">+ firefox-unwrapped</div>
+    ` : ''}
+    ${genNumber === 141 ? `
+        <div class="diff-line diff-add">+ docker</div>
+        <div class="diff-line diff-add">+ docker-compose</div>
+    ` : ''}
+    ${genNumber === 140 ? `
+        <div class="diff-line diff-add">+ nodejs-20_x</div>
+        <div class="diff-line diff-add">+ rustc</div>
+        <div class="diff-line diff-add">+ cargo</div>
+        <div class="diff-line diff-remove">- nodejs-18_x</div>
+    ` : ''}
+    
+    <div class="diff-header" style="margin-top: 1rem;">Service Changes</div>
+    ${genNumber === 141 ? `
+        <div class="diff-line diff-add">+ virtualisation.docker.enable = true;</div>
+    ` : '<div class="diff-line">No service changes</div>'}
+    
+    <div class="diff-header" style="margin-top: 1rem;">Kernel Update</div>
+    ${genNumber === 142 ? `
+        <div class="diff-line diff-remove">- linux-6.15.5</div>
+        <div class="diff-line diff-add">+ linux-6.15.6</div>
+    ` : '<div class="diff-line">No kernel changes</div>'}
+</div>
+
+<div style="margin-top: 1.5rem;">
+    <button class="btn btn-secondary" onclick="exportDiff(${genNumber})">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export Diff
+    </button>
+</div>
+            `;
+
+            document.getElementById('diffContent').innerHTML = diffContent;
+            document.getElementById('diffModal').classList.add('active');
+        }
+
+        // Delete generation
+        async function deleteGeneration(genNumber) {
+            const gen = generations.find(g => g.number === genNumber);
+            if (!gen) return;
+
+            const confirmMsg = `Delete Generation #${genNumber}?
+
+Date: ${formatDate(gen.date)}
+This action cannot be undone.
+
+Note: You should keep at least 2-3 recent generations for safety.`;
+
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                // In real implementation, this would call the API
+                const response = await fetch(`/api/generations/${genNumber}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('Failed to delete generation');
+
+                // Remove from list
+                generations = generations.filter(g => g.number !== genNumber);
+                renderGenerations();
+                updateInfo();
+                
+                alert(`Generation #${genNumber} deleted successfully!`);
+            } catch (error) {
+                // Demo mode
+                alert(`Demo: Would delete Generation #${genNumber}\n\nCommand: sudo nix-env --delete-generations ${genNumber}`);
+            }
+        }
+
+        // Format date
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (days === 0) {
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                if (hours === 0) {
+                    const minutes = Math.floor(diff / (1000 * 60));
+                    return `${minutes} minutes ago`;
+                }
+                return `${hours} hours ago`;
+            } else if (days === 1) {
+                return 'Yesterday';
+            } else if (days < 7) {
+                return `${days} days ago`;
+            } else {
+                return date.toLocaleDateString();
+            }
+        }
+
+        // Refresh generations
+        async function refreshGenerations() {
+            await loadGenerations();
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('diffModal').classList.remove('active');
+        }
+
+        // Export diff
+        function exportDiff(genNumber) {
+            alert('Demo: Diff would be exported to a file');
+        }
+
+        // Modal backdrop click
+        document.getElementById('diffModal').addEventListener('click', (e) => {
+            if (e.target.id === 'diffModal') {
+                closeModal();
+            }
+        });
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

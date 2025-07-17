@@ -1,0 +1,32 @@
+{
+  "name": "nixos-gui-backend",
+  "version": "0.1.0",
+  "description": "Backend API for NixOS GUI - Making NixOS accessible with love",
+  "main": "nixos-gui-api.js",
+  "scripts": {
+    "start": "node nixos-gui-api.js",
+    "dev": "nodemon nixos-gui-api.js",
+    "test": "echo \"Tests with love coming soon\" && exit 0"
+  },
+  "keywords": [
+    "nixos",
+    "gui",
+    "api",
+    "sacred",
+    "love"
+  ],
+  "author": "Luminous Dynamics",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "joi": "^17.11.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
