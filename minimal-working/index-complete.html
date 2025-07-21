@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS Package Search - Complete Version</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        #search {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            transition: border-color 0.3s;
+        }
+        
+        #search:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        /* Status badges */
+        .installed-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .installed-badge.yes {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .installed-badge.no {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        /* Buttons (borrowed from MVP v2) */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            user-select: none;
+            gap: 6px;
+        }
+        
+        .btn-primary {
+            background: #2196f3;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1976d2;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            max-width: 400px;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast-success {
+            background: #4caf50;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result {
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .result:hover {
+            border-color: #3498db;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .result.installed {
+            background: #f8f9fa;
+        }
+        
+        .package-info {
+            flex: 1;
+        }
+        
+        .package-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .package-name {
+            font-weight: bold;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        
+        .package-version {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .package-description {
+            margin-top: 5px;
+            color: #555;
+        }
+        
+        .package-actions {
+            margin-left: 20px;
+        }
+        
+        .no-results {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px;
+        }
+        
+        .stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .command {
+            background: #f5f5f5;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .feature-badge {
+            background: #4caf50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            NixOS Package Search
+            <span class="feature-badge">v3: Complete!</span>
+        </h1>
+        <p class="subtitle">Search • Check Status • Install — A complete package tool!</p>
+        
+        <div class="stats" id="stats">
+            <div class="stat">
+                <span class="stat-label">Installed packages:</span>
+                <span class="stat-value" id="installedCount">Loading...</span>
+            </div>
+        </div>
+        
+        <div class="search-box">
+            <input 
+                type="text" 
+                id="search" 
+                placeholder="Search for packages (e.g., firefox, vim, git)..."
+                autofocus
+            >
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div id="results" class="results"></div>
+        
+        <div class="footer">
+            <p>✨ Features: Search packages • See installed status • Copy install commands</p>
+            <p>Built with love, one feature at a time 💚</p>
+        </div>
+    </div>
+    
+    <!-- Toast notification container -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const searchInput = document.getElementById('search');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+        const toastDiv = document.getElementById('toast');
+        const installedCountSpan = document.getElementById('installedCount');
+        let searchTimeout;
+
+        // Load installed package count on startup
+        async function loadInstalledCount() {
+            try {
+                const response = await fetch('http://localhost:5000/installed');
+                const data = await response.json();
+                installedCountSpan.textContent = data.count || '0';
+            } catch (err) {
+                installedCountSpan.textContent = 'Unknown';
+            }
+        }
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function hideStatus() {
+            statusDiv.style.display = 'none';
+        }
+        
+        function showToast(message, type = 'success') {
+            toastDiv.textContent = message;
+            toastDiv.className = `toast ${type === 'success' ? 'toast-success' : ''}`;
+            toastDiv.classList.add('show');
+            
+            setTimeout(() => {
+                toastDiv.classList.remove('show');
+            }, 3000);
+        }
+        
+        async function copyInstallCommand(packageName, isInstalled) {
+            if (isInstalled) {
+                showToast('This package is already installed!');
+                return;
+            }
+            
+            const command = `nix-env -iA nixpkgs.${packageName}`;
+            
+            try {
+                await navigator.clipboard.writeText(command);
+                showToast(`✅ Copied: ${command}`);
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = command;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    showToast(`✅ Copied: ${command}`);
+                } catch (err) {
+                    showToast('Failed to copy command', 'error');
+                }
+                
+                document.body.removeChild(textArea);
+            }
+        }
+
+        async function performSearch(query) {
+            if (!query.trim()) {
+                resultsDiv.innerHTML = '';
+                hideStatus();
+                return;
+            }
+
+            showStatus('Searching packages...', 'loading');
+            
+            try {
+                const response = await fetch(`http://localhost:5000/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus(`Error: ${data.error}`, 'error');
+                    resultsDiv.innerHTML = '';
+                    return;
+                }
+                
+                if (data.results.length === 0) {
+                    hideStatus();
+                    resultsDiv.innerHTML = '<div class="no-results">No packages found</div>';
+                    return;
+                }
+                
+                const installedCount = data.results.filter(p => p.installed).length;
+                const message = data.total > 50 
+                    ? `Showing first 50 of ${data.total} results (${installedCount} installed)` 
+                    : `Found ${data.results.length} packages (${installedCount} installed)`;
+                showStatus(message, 'success');
+                
+                const html = data.results.map(pkg => `
+                    <div class="result ${pkg.installed ? 'installed' : ''}">
+                        <div class="package-info">
+                            <div class="package-header">
+                                <span class="package-name">${pkg.name}</span>
+                                <span class="package-version">${pkg.version}</span>
+                                <span class="installed-badge ${pkg.installed ? 'yes' : 'no'}">
+                                    ${pkg.installed ? '✅ Installed' : '📦 Available'}
+                                </span>
+                            </div>
+                            <div class="package-description">${pkg.description}</div>
+                        </div>
+                        <div class="package-actions">
+                            <button 
+                                class="btn btn-primary" 
+                                onclick="copyInstallCommand('${pkg.name}', ${pkg.installed})"
+                                ${pkg.installed ? 'disabled' : ''}
+                            >
+                                ${pkg.installed ? '✓ Installed' : '📋 Install'}
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                resultsDiv.innerHTML = html;
+                
+                // Update installed count after search
+                loadInstalledCount();
+                
+            } catch (error) {
+                showStatus('Failed to connect to backend. Is it running on port 5000?', 'error');
+                resultsDiv.innerHTML = '';
+            }
+        }
+
+        // Debounced search
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value;
+            
+            if (!query.trim()) {
+                resultsDiv.innerHTML = '';
+                hideStatus();
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 500);
+        });
+
+        // Load installed count on startup
+        loadInstalledCount();
+
+        // Show initial message
+        resultsDiv.innerHTML = `
+            <div class="no-results">
+                <p>Start typing to search NixOS packages</p>
+                <p style="margin-top: 20px">Try searching for:</p>
+                <p><strong>firefox</strong> • <strong>vim</strong> • <strong>python</strong> • <strong>nodejs</strong></p>
+                <p style="margin-top: 20px; font-size: 14px; color: #666;">
+                    ✅ = Already installed | 📦 = Available to install
+                </p>
+            </div>
+        `;
+    </script>
+</body>
+</html>

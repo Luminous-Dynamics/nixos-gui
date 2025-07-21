@@ -1,159 +1,370 @@
-# 💝 NixOS GUI - Making NixOS Accessible to Everyone
+# 🌟 NixOS GUI - Healing-Centered System Management
 
-A beautiful, intuitive GUI for NixOS that makes system configuration a joy. Built with love, designed with care, shared with the world.
+A gentle, web-based interface for NixOS that transforms system administration from anxiety to peace. Built with consciousness-first principles and universal accessibility.
 
-🌐 **Live Demo**: [View MVP](https://luminous-dynamics.github.io/nixos-gui/)  
-📦 **Repository**: [github.com/Luminous-Dynamics/nixos-gui](https://github.com/Luminous-Dynamics/nixos-gui)  
-💬 **Discussion**: [RFC on NixOS Discourse](https://discourse.nixos.org/t/rfc-nixos-gui)  
+**[📖 Quick Start Guide](README-QUICKSTART.md)** | **[💝 Philosophy](PHILOSOPHY.md)** | **[🌐 Demo](https://infin.love/nixos-gui)**
 
-## 🎯 The Problem We're Solving
+![NixOS GUI Dashboard](docs/images/dashboard.png)
 
-NixOS is incredibly powerful but has a steep learning curve that prevents widespread adoption. New users struggle with:
-- Complex Nix language syntax
-- Fear of breaking their system
-- Difficulty discovering packages
-- No visual feedback for changes
+## 🚀 Get Started in 2 Minutes
 
-## 💡 Our Solution
+```bash
+# One-line install
+curl -sL https://infin.love/nixos-gui/install.sh | bash
 
-A GUI that makes NixOS configuration:
-- **Beautiful** - A joy to use every day
-- **Safe** - Preview all changes before applying
-- **Educational** - Learn Nix as you go
-- **Accessible** - No prior Nix knowledge required
+# Open in browser
+xdg-open http://localhost:7778
+```
+
+Default login created during install (check output for password).
+
+## ✨ Features
+
+### 🎯 Core Features
+
+- **📦 Package Management**
+  - Search and install packages from nixpkgs
+  - Remove installed packages with confirmation
+  - View package details and dependencies
+  - System rollback capabilities
+  - Update checker for outdated packages
+  - Real-time installation progress
+
+- **⚙️ Configuration Editor**
+  - Edit `/etc/nixos/configuration.nix` with syntax highlighting
+  - Live validation of Nix expressions
+  - Visual diff before applying changes
+  - Safe staging with rollback options
+  - Real-time error detection
+  - CodeMirror integration
+
+- **🔧 Service Manager**
+  - Start, stop, restart, and reload services
+  - Real-time service status monitoring
+  - Live log streaming with Server-Sent Events
+  - Service configuration editing
+  - Health metrics and performance data
+  - Systemd unit file viewer
+
+- **💻 Hardware Configuration**
+  - Comprehensive hardware detection (CPU, GPU, disks, network)
+  - Driver recommendations and installation
+  - Kernel module management
+  - Hardware-specific NixOS configurations
+  - PCI/USB device information
+  - BIOS/UEFI settings display
+
+- **👥 User & Permissions Manager**
+  - Create and manage users with full options
+  - Group management and membership
+  - Sudo permissions configuration
+  - Shell selection (bash, zsh, fish)
+  - Password management
+  - Home directory configuration
+
+### 🔐 Security Features
+
+- JWT-based authentication with secure tokens
+- Role-based access control
+- Secure token management with expiry
+- CORS protection
+- Audit logging for all operations
+- Session management
 
 ## 🚀 Quick Start
 
-### Try the MVP Demo
+### Option 1: NixOS Module (Recommended)
+
+1. Add to your `/etc/nixos/configuration.nix`:
+
+```nix
+{ config, pkgs, ... }:
+
+{
+  imports = [
+    /path/to/nixos-gui/nixos-module.nix
+  ];
+
+  services.nixos-gui = {
+    enable = true;
+    openFirewall = true;  # For local network access
+  };
+}
+```
+
+2. Rebuild your system:
 ```bash
-git clone https://github.com/Luminous-Dynamics/nixos-gui
+sudo nixos-rebuild switch
+```
+
+3. Access the GUI at: http://localhost:8080
+
+Default credentials:
+- Username: `admin`
+- Password: `nixos123`
+
+### Option 2: Quick Installation Script
+
+```bash
+git clone https://github.com/yourusername/nixos-gui.git
 cd nixos-gui
-open mvp/index.html  # or xdg-open on Linux
+sudo ./install.sh
 ```
 
-### Features in the Demo
-- 🔍 Fast package search with beautiful UI
-- 📦 One-click package installation
-- 🎨 Sacred design with smooth animations
-- 🛡️ Safety-first approach with previews
-- 📚 Shows generated Nix code for learning
+### Option 3: Development Setup
 
-## 🗺️ Roadmap
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/nixos-gui.git
+cd nixos-gui
 
-### Phase 1: Package Manager (Current)
-- [x] Beautiful package search interface
-- [x] Filter by category and status
-- [x] One-click install with preview
-- [ ] Real Nix backend integration
-- [ ] Live package installation
+# Install dependencies
+cd backend
+npm install
 
-### Phase 2: Service Management
-- [ ] Visual service dashboard
-- [ ] Enable/disable with toggles
-- [ ] Service configuration wizards
-- [ ] Dependency visualization
+# Start the backend
+CORS_ORIGIN="*" node nixos-gui-api-enhanced-fixed.js
 
-### Phase 3: Full System Configuration
-- [ ] User management interface
-- [ ] Network configuration
-- [ ] Hardware settings
-- [ ] Boot options
+# In another terminal, serve the frontend
+cd ../mvp
+python3 -m http.server 8000
+```
 
-## 🏗️ Technical Architecture
+Access at: http://localhost:8000
+
+## 📖 Documentation
+
+- [Installation Guide](INSTALLATION.md) - Detailed setup instructions
+- [Quick Start Guide](QUICK_START.md) - Get running in 5 minutes
+- [API Documentation](docs/API.md) - REST API reference
+- [Architecture Overview](docs/ARCHITECTURE.md) - System design
+- [Contributing Guide](CONTRIBUTING.md) - Development guidelines
+
+## 🏗️ Architecture
 
 ```
-Frontend: Tauri (Rust + Web)
-├── Beautiful, responsive UI
-├── Native performance
-└── Cross-platform support
+┌─────────────────────────────────────────────┐
+│           Web Frontend (HTML/JS)             │
+│  Dashboard │ Packages │ Config │ Services   │
+└─────────────────┬───────────────────────────┘
+                  │ REST API + SSE
+┌─────────────────┴───────────────────────────┐
+│         Node.js Backend (Express)            │
+│  Auth │ Nix Ops │ System Mgmt │ Real-time   │
+└─────────────────┬───────────────────────────┘
+                  │ System Calls
+┌─────────────────┴───────────────────────────┐
+│            NixOS System Layer                │
+│  Nix │ Systemd │ Hardware │ Users/Groups    │
+└─────────────────────────────────────────────┘
+```
 
-Backend: Rust
-├── Direct Nix evaluation
-├── Safe config generation
-└── Real-time updates
+### Key Components
 
-Design: Love-Driven Development
-├── Every pixel placed with care
-├── Every interaction thoughtful
-└── Every feature serves the user
+- **Backend API**: Node.js/Express server with JWT authentication
+- **Frontend**: Pure HTML/CSS/JavaScript (no framework dependencies)
+- **Real-time Updates**: Server-Sent Events for logs and status
+- **System Integration**: Direct Nix and systemd command execution
+- **Security**: JWT tokens, CORS protection, secure command execution
+
+## 🛠️ Technology Stack
+
+- **Frontend**: 
+  - Vanilla JavaScript (ES6+)
+  - HTML5, CSS3
+  - CodeMirror for code editing
+  - No framework dependencies
+  
+- **Backend**:
+  - Node.js 18+
+  - Express.js
+  - JWT for authentication
+  - Server-Sent Events
+  
+- **System Integration**:
+  - Child process execution
+  - Nix commands (search, install, query)
+  - Systemd control
+  - Hardware detection tools
+
+## 📋 Requirements
+
+- NixOS (tested on 23.11 and unstable)
+- Node.js 18+ 
+- npm or yarn
+- Modern web browser (Chrome, Firefox, Safari)
+- For development: Python 3 (for simple HTTP server)
+
+## 🔧 Configuration
+
+### NixOS Module Options
+
+```nix
+services.nixos-gui = {
+  enable = true;
+  apiPort = 7778;        # Backend API port
+  frontendPort = 8080;   # Frontend web server port
+  openFirewall = false;  # Open ports in firewall
+  
+  # CORS configuration for security
+  allowedOrigins = [ 
+    "http://localhost:8080"
+    "http://192.168.1.100:8080"  # Your LAN IP
+  ];
+  
+  # JWT secret (auto-generated if empty)
+  jwtSecret = "";
+  
+  # State directory for persistent data
+  stateDir = "/var/lib/nixos-gui";
+  
+  # Service user/group
+  user = "nixos-gui";
+  group = "nixos-gui";
+};
+```
+
+### Environment Variables
+
+For manual setup:
+
+```bash
+# API Server
+PORT=7778                    # API port
+CORS_ORIGIN="*"             # CORS origins (* for dev only!)
+JWT_SECRET="your-secret"    # JWT secret key
+NODE_ENV="production"       # Environment
+
+# Frontend
+# No special config needed, just serve static files
+```
+
+## 🚦 Development
+
+### Running Tests
+
+```bash
+cd backend
+npm test
+```
+
+### Building for Production
+
+```bash
+cd backend
+npm run build
+```
+
+### Development Mode
+
+```bash
+# Watch mode with auto-restart
+cd backend
+npm run dev
+```
+
+### Creating a Release
+
+```bash
+./scripts/release.sh v1.0.0
 ```
 
 ## 🤝 Contributing
 
-We need help from:
-- 🎨 **UI/UX Designers** - Make it even more beautiful
-- 🦀 **Rust Developers** - Build the backend
-- ❄️ **Nix Experts** - Ensure correctness
-- 📝 **Documentation Writers** - Help others learn
-- 🧪 **Beta Testers** - Find rough edges
-
-### Getting Started
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with love
-4. Submit a PR with clear description
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ### Development Setup
-```bash
-# Install dependencies
-npm install
 
-# Run development server
-npm run dev
+1. Fork the repository
+2. Clone your fork
+3. Install dependencies: `npm install`
+4. Create a feature branch: `git checkout -b feature/amazing-feature`
+5. Make your changes
+6. Run tests: `npm test`
+7. Commit: `git commit -m 'Add amazing feature'`
+8. Push: `git push origin feature/amazing-feature`
+9. Open a Pull Request
 
-# Build for production
-npm run build
-```
+### Areas for Contribution
 
-## 📖 Documentation
+- [ ] Dark mode theme
+- [ ] Mobile-responsive design  
+- [ ] WebSocket support for real-time updates
+- [ ] Backup and restore functionality
+- [ ] Multi-user collaboration features
+- [ ] Plugin system for extensions
+- [ ] Internationalization (i18n)
+- [ ] Flake support
+- [ ] Home-manager integration
+- [ ] Container/VM management
 
-- [RFC Draft](RFC_DRAFT.md) - Full proposal for NixOS community
-- [Design Philosophy](TROJAN_HORSE_OF_LOVE.md) - Why we build with love
-- [Technical Spec](design-spec.md) - Implementation details
-- [Sacred Vision](SACRED_NIXOS_GUI_VISION.md) - The deeper purpose
+## 🎨 Screenshots
 
-## 💖 Design Philosophy
+### Dashboard
+![Dashboard](docs/images/dashboard.png)
+*The main dashboard provides system overview and quick actions*
 
-This project is a "Trojan Horse of Love" - a tool that:
-- Welcomes users with beauty and simplicity
-- Protects them with thoughtful safety features
-- Empowers them through education
-- Transforms their relationship with their system
+### Package Manager
+![Package Manager](docs/images/packages.png)
+*Search, install, and manage packages with ease*
 
-Every feature is an act of love:
-- **Safety checks** protect users from mistakes
-- **Beautiful design** respects their time and attention
-- **Clear feedback** celebrates their success
-- **Educational tooltips** empower growth
+### Configuration Editor
+![Config Editor](docs/images/config-editor.png)
+*Edit NixOS configuration with syntax highlighting and validation*
 
-## 🌟 Why This Matters
-
-By making NixOS accessible to everyone, we:
-- Democratize powerful system management
-- Reduce the barrier to declarative configuration
-- Help more people enjoy reproducible systems
-- Build a larger, more diverse NixOS community
-
-## 📞 Get Involved
-
-- **GitHub**: [Report issues or contribute](https://github.com/Luminous-Dynamics/nixos-gui)
-- **Matrix**: #nixos-gui:matrix.org
-- **Discourse**: [Join the discussion](https://discourse.nixos.org)
-
-## 🙏 Acknowledgments
-
-Built on the shoulders of giants:
-- Previous GUI attempts that paved the way
-- The NixOS community for continuous inspiration
-- Everyone who believes software should be beautiful
+### Service Manager
+![Service Manager](docs/images/services.png)
+*Monitor and control systemd services with real-time logs*
 
 ## 📄 License
 
-MIT - Use freely, modify joyfully, share generously
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with consciousness-first principles from [Luminous Dynamics](https://github.com/Luminous-Dynamics)
+- Inspired by the need for accessible NixOS management
+- Thanks to the NixOS community for excellent documentation
+- CodeMirror for the excellent code editor
+- All contributors who help make this better
+
+## 🐛 Known Issues
+
+- Service logs may show "permission denied" for some system services
+- Package search can be slow on first run (building cache)
+- Some hardware detection requires root privileges
+- WebKit-based browsers may have SSE connection limits
+
+## 📞 Support
+
+- 📋 Open an issue on [GitHub](https://github.com/yourusername/nixos-gui/issues)
+- 📖 Check the [FAQ](docs/FAQ.md)
+- 💬 Join our [Discord](https://discord.gg/nixos-gui)
+- 📧 Email: support@nixos-gui.org
+
+## 🚀 Roadmap
+
+### Version 1.0 (Current)
+- ✅ Package management
+- ✅ Configuration editing
+- ✅ Service management
+- ✅ Hardware configuration
+- ✅ User management
+
+### Version 1.1 (Q2 2024)
+- [ ] Dark mode
+- [ ] Mobile support
+- [ ] Backup/restore
+- [ ] Plugin system
+
+### Version 2.0 (Q4 2024)
+- [ ] Multi-system management
+- [ ] Declarative GUI configuration
+- [ ] Advanced monitoring
+- [ ] Kubernetes integration
 
 ---
 
-<p align="center">
-  <i>"Making the declarative delightful, one pixel at a time."</i><br>
-  <b>Built with 💝 by the Luminous Dynamics team and contributors</b>
-</p>
+Made with ❤️ for the NixOS community. May your configurations always be reproducible! 🌊
+
+*"The future of computing is declarative, and we're here to make it accessible to everyone."*

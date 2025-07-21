@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS Package Search - Fixed Ports</title>
+    <style>
+        /* All the same styles as before */
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .port-notice {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        h1 { margin: 0 0 10px 0; color: #2c3e50; }
+        .subtitle { color: #7f8c8d; margin-bottom: 30px; }
+        
+        #search {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        #search:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #2196f3;
+            color: white;
+        }
+        
+        .btn:hover {
+            background: #1976d2;
+        }
+        
+        .result {
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .package-name {
+            font-weight: bold;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NixOS Package Search</h1>
+        <p class="subtitle">Now running on the correct ports!</p>
+        
+        <div class="port-notice">
+            ℹ️ Frontend: Port 8001 | Backend API: Port 5001 | No conflicts with Sacred Economics!
+        </div>
+        
+        <input 
+            type="text" 
+            id="search" 
+            placeholder="Search for packages..."
+            autofocus
+        >
+        
+        <div id="status"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // IMPORTANT: Using port 5001 for backend!
+        const BACKEND_URL = 'http://localhost:5001';
+        
+        const searchInput = document.getElementById('search');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+        let searchTimeout;
+
+        async function performSearch(query) {
+            if (!query.trim()) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+
+            statusDiv.innerHTML = '<p>Searching...</p>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    statusDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                    resultsDiv.innerHTML = '';
+                    return;
+                }
+                
+                statusDiv.innerHTML = `<p>Found ${data.results.length} packages</p>`;
+                
+                const html = data.results.map(pkg => `
+                    <div class="result">
+                        <div class="package-name">${pkg.name}</div>
+                        <div>${pkg.description}</div>
+                        <button class="btn" onclick="copyCommand('${pkg.name}')">
+                            📋 Copy Install Command
+                        </button>
+                    </div>
+                `).join('');
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">
+                    Failed to connect to backend on port 5001<br>
+                    Make sure you started it with: ./start-complete-fixed.sh
+                </div>`;
+                resultsDiv.innerHTML = '';
+            }
+        }
+        
+        function copyCommand(packageName) {
+            const command = `nix-env -iA nixpkgs.${packageName}`;
+            navigator.clipboard.writeText(command).then(() => {
+                alert(`Copied: ${command}`);
+            });
+        }
+
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                performSearch(e.target.value);
+            }, 500);
+        });
+        
+        // Initial message
+        resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">Start typing to search packages...</p>';
+    </script>
+</body>
+</html>

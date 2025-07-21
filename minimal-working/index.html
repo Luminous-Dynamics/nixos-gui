@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS Package Search - Minimal Working Version</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        #search {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            transition: border-color 0.3s;
+        }
+        
+        #search:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result {
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+        
+        .result:hover {
+            border-color: #3498db;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .package-name {
+            font-weight: bold;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        
+        .package-version {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        
+        .package-description {
+            margin-top: 5px;
+            color: #555;
+        }
+        
+        .no-results {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .command {
+            background: #f5f5f5;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NixOS Package Search</h1>
+        <p class="subtitle">A minimal working implementation - search for real packages!</p>
+        
+        <div class="search-box">
+            <input 
+                type="text" 
+                id="search" 
+                placeholder="Search for packages (e.g., firefox, vim, git)..."
+                autofocus
+            >
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div id="results" class="results"></div>
+        
+        <div class="footer">
+            <p>💡 Tip: This runs <span class="command">nix-env -qa</span> behind the scenes</p>
+            <p>Built with ❤️ and honesty - one working feature at a time</p>
+        </div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('search');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+        let searchTimeout;
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function hideStatus() {
+            statusDiv.style.display = 'none';
+        }
+
+        async function performSearch(query) {
+            if (!query.trim()) {
+                resultsDiv.innerHTML = '';
+                hideStatus();
+                return;
+            }
+
+            showStatus('Searching packages...', 'loading');
+            
+            try {
+                const response = await fetch(`http://localhost:5000/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus(`Error: ${data.error}`, 'error');
+                    resultsDiv.innerHTML = '';
+                    return;
+                }
+                
+                if (data.results.length === 0) {
+                    hideStatus();
+                    resultsDiv.innerHTML = '<div class="no-results">No packages found</div>';
+                    return;
+                }
+                
+                const message = data.total > 50 
+                    ? `Showing first 50 of ${data.total} results` 
+                    : `Found ${data.results.length} packages`;
+                showStatus(message, 'success');
+                
+                const html = data.results.map(pkg => `
+                    <div class="result">
+                        <div>
+                            <span class="package-name">${pkg.name}</span>
+                            <span class="package-version">${pkg.version}</span>
+                        </div>
+                        <div class="package-description">${pkg.description}</div>
+                    </div>
+                `).join('');
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                showStatus('Failed to connect to backend. Is it running on port 5000?', 'error');
+                resultsDiv.innerHTML = '';
+            }
+        }
+
+        // Debounced search
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value;
+            
+            if (!query.trim()) {
+                resultsDiv.innerHTML = '';
+                hideStatus();
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 500); // Wait 500ms after user stops typing
+        });
+
+        // Show initial message
+        resultsDiv.innerHTML = `
+            <div class="no-results">
+                <p>Start typing to search NixOS packages</p>
+                <p style="margin-top: 20px">Try searching for:</p>
+                <p><strong>firefox</strong> • <strong>vim</strong> • <strong>python</strong> • <strong>nodejs</strong></p>
+            </div>
+        `;
+    </script>
+</body>
+</html>

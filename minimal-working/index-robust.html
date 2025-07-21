@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NixOS Package Search - Robust Version</title>
+    <style>
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .port-notice {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .feature-status {
+            background: #f5f5f5;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .feature-status.working { background: #e8f5e9; color: #2e7d32; }
+        .feature-status.degraded { background: #fff3e0; color: #ef6c00; }
+        
+        h1 { margin: 0 0 10px 0; color: #2c3e50; }
+        .subtitle { color: #7f8c8d; margin-bottom: 20px; }
+        
+        #search {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        #search:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #2196f3;
+            color: white;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            background: #1976d2;
+        }
+        
+        .installed-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #4caf50;
+            color: white;
+            border-radius: 3px;
+            margin-left: 10px;
+        }
+        
+        .result {
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .package-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        
+        .package-name {
+            font-weight: bold;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        
+        .package-version {
+            color: #7f8c8d;
+            margin-left: 10px;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NixOS Package Search</h1>
+        <p class="subtitle">Robust version with graceful feature degradation</p>
+        
+        <div class="port-notice">
+            ℹ️ Frontend: Port 8001 | Backend API: Port 5001 | No conflicts!
+        </div>
+        
+        <div id="feature-status" class="feature-status">
+            Checking features...
+        </div>
+        
+        <input 
+            type="text" 
+            id="search" 
+            placeholder="Search for packages (e.g., firefox, git, vim)..."
+            autofocus
+        >
+        
+        <div id="status"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Using the correct backend port!
+        const BACKEND_URL = 'http://localhost:5001';
+        
+        const searchInput = document.getElementById('search');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+        const featureStatusDiv = document.getElementById('feature-status');
+        
+        let searchTimeout;
+        let installedCheckAvailable = false;
+
+        // Check backend health on load
+        async function checkBackendHealth() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`);
+                const data = await response.json();
+                
+                installedCheckAvailable = data.features.installedStatus;
+                
+                if (installedCheckAvailable) {
+                    featureStatusDiv.className = 'feature-status working';
+                    featureStatusDiv.innerHTML = `✅ All features working! (${data.features.installedCount} packages detected)`;
+                } else {
+                    featureStatusDiv.className = 'feature-status degraded';
+                    featureStatusDiv.innerHTML = '⚠️ Search working, but installed status unavailable (permission issue)';
+                }
+            } catch (error) {
+                featureStatusDiv.className = 'feature-status degraded';
+                featureStatusDiv.innerHTML = '❌ Backend not responding on port 5001';
+            }
+        }
+
+        async function performSearch(query) {
+            if (!query.trim()) {
+                resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">Start typing to search packages...</p>';
+                statusDiv.innerHTML = '';
+                return;
+            }
+
+            statusDiv.innerHTML = '<div class="loading">Searching...</div>';
+            resultsDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    statusDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                    return;
+                }
+                
+                statusDiv.innerHTML = `<p>Found ${data.results.length} of ${data.total || data.results.length} packages</p>`;
+                
+                if (data.results.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">No packages found. Try a different search term.</p>';
+                    return;
+                }
+                
+                const html = data.results.map(pkg => `
+                    <div class="result">
+                        <div class="package-header">
+                            <span class="package-name">${pkg.name}</span>
+                            <span class="package-version">${pkg.version}</span>
+                            ${pkg.installed && pkg.hasInstalledData ? '<span class="installed-badge">✅ Installed</span>' : ''}
+                        </div>
+                        <div style="color: #666; margin-bottom: 10px;">${pkg.description}</div>
+                        <button class="btn" onclick="copyCommand('${pkg.name}')">
+                            📋 Copy Install Command
+                        </button>
+                        ${pkg.installed ? 
+                            `<button class="btn" style="background: #f44336;" onclick="copyRemoveCommand('${pkg.name}')">
+                                🗑️ Copy Remove Command
+                            </button>` : ''
+                        }
+                    </div>
+                `).join('');
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">
+                    Failed to connect to backend on port 5001<br>
+                    Make sure the backend is running: <code>python3 backend-robust.py</code>
+                </div>`;
+            }
+        }
+        
+        function copyCommand(packageName) {
+            const command = `nix-env -iA nixpkgs.${packageName}`;
+            navigator.clipboard.writeText(command).then(() => {
+                // Find the button and temporarily change its text
+                event.target.innerHTML = '✅ Copied!';
+                setTimeout(() => {
+                    event.target.innerHTML = '📋 Copy Install Command';
+                }, 2000);
+            }).catch(() => {
+                alert(`Install command: ${command}`);
+            });
+        }
+        
+        function copyRemoveCommand(packageName) {
+            const command = `nix-env -e ${packageName}`;
+            navigator.clipboard.writeText(command).then(() => {
+                event.target.innerHTML = '✅ Copied!';
+                setTimeout(() => {
+                    event.target.innerHTML = '🗑️ Copy Remove Command';
+                }, 2000);
+            }).catch(() => {
+                alert(`Remove command: ${command}`);
+            });
+        }
+
+        // Search as you type with debouncing
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                performSearch(e.target.value);
+            }, 500);
+        });
+        
+        // Check backend health on load
+        checkBackendHealth();
+        
+        // Initial message
+        resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">Start typing to search packages...</p>';
+    </script>
+</body>
+</html>
